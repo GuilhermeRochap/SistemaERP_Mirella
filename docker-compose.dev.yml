@@ -1,0 +1,87 @@
+# ============================================
+# Docker Compose - Desenvolvimento/Teste
+# Mirella Doces Delivery System
+# ============================================
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # Banco de Dados PostgreSQL - Desenvolvimento
+  # ==========================================
+  db_dev:
+    image: postgres:15-alpine
+    container_name: mirella_doces_db_dev
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=mirella_doces_dev
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Porta diferente para não conflitar
+    networks:
+      - mirella_network_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mirella_doces_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # Banco de Dados PostgreSQL - Teste
+  # ==========================================
+  db_test:
+    image: postgres:15-alpine
+    container_name: mirella_doces_db_test
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=mirella_doces_test
+    volumes:
+      - postgres_data_test:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"  # Outra porta diferente
+    networks:
+      - mirella_network_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mirella_doces_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # pgAdmin (Opcional - Interface Gráfica)
+  # ==========================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: mirella_doces_pgadmin
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@mirella.com
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+    ports:
+      - "5050:80"
+    networks:
+      - mirella_network_dev
+    depends_on:
+      - db_dev
+      - db_test
+
+# ==========================================
+# Volumes Persistentes
+# ==========================================
+volumes:
+  postgres_data_dev:
+    driver: local
+  postgres_data_test:
+    driver: local
+
+# ==========================================
+# Rede Interna
+# ==========================================
+networks:
+  mirella_network_dev:
+    driver: bridge

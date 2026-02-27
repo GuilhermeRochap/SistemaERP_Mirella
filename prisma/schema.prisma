@@ -1,0 +1,135 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/mirella_doces_delivery/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Pedido {
+  id                      String   @id @default(uuid())
+  nomeRecebedor           String
+  telefone                String
+  cpf                     String
+  cep                     String
+  endereco                String
+  numero                  String?
+  complemento             String?
+  bairro                  String
+  cidade                  String
+  estado                  String
+  latitude                Float?
+  longitude               Float?
+  dataEntrega             DateTime
+  horaEntrega             String
+  tempoEstimadoProducao   Int      // em minutos
+  status                  String   // Urgente, Anônimo, Presente
+  descricao               String
+  peso                    Float    // em kg
+  altura                  Float    // em cm
+  largura                 Float    // em cm
+  profundidade            Float    // em cm
+  statusProducao          String   @default("Aguardando Produção") // Aguardando Produção, Em Produção, Pausado, Concluído, Em Rota, Entregue
+  inicioProducao          DateTime?
+  fimProducao             DateTime?
+  tempoPausado            Int      @default(0) // tempo total em segundos
+  rotaId                  String?
+  rota                    Rota?    @relation(fields: [rotaId], references: [id])
+  // Novos campos - Valores e Financeiro
+  valorTotalCompra        Float?   // valor total da compra
+  valorFretePago          Float?   // valor do frete pago pelo cliente
+  valorFreteReal          Float?   // valor real do frete (custo transportadora)
+  // Origem e Pagamento
+  origemPedido            String?  // Site, WhatsApp, Retirada
+  formaPagamento          String?  // Pix, Link, Dinheiro
+  // Pedido Anônimo
+  pedidoAnonimo           Boolean  @default(false)
+  mensagemAnonima         String?  // mensagem personalizada para pedido anônimo
+  // Nome do comprador (para pedidos anônimos, quem comprou vs quem recebe)
+  nomeComprador           String?
+  telefoneComprador       String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  historico               HistoricoStatus[]
+
+  @@index([statusProducao])
+  @@index([dataEntrega])
+  @@index([rotaId])
+  @@index([origemPedido])
+}
+
+model Rota {
+  id                    String   @id @default(uuid())
+  data                  DateTime
+  tipoVeiculo           String   // Moto, Carro, Van
+  pesoTotal             Float
+  distanciaTotal        Float?   // em km
+  tempoEstimadoTotal    Int?     // em minutos
+  ordem                 Json     // array com ordem dos pedidos
+  geometria             Json?    // geometria da rota (polyline, etc)
+  status                String   @default("Planejada") // Planejada, Em Andamento, Concluída
+  // Campos Lalamove
+  lalamoveOrderId       String?  // ID do pedido na Lalamove
+  lalamoveStatus        String?  // Status do pedido Lalamove: ASSIGNING_DRIVER, ON_GOING, PICKED_UP, COMPLETED, etc.
+  lalamoveShareLink     String?  // Link de rastreamento
+  lalamoveQuotationId   String?  // ID da cotação usada
+  lalamoveServiceType   String?  // Tipo de serviço (LALAGO, CAR, VAN)
+  lalamovePrice         Float?   // Preço cobrado
+  lalamoveDriverName    String?  // Nome do motorista
+  lalamoveDriverPhone   String?  // Telefone do motorista
+  lalamovePlateNumber   String?  // Placa do veículo
+  lalamoveChamadoEm     DateTime? // Data/hora que chamou o veículo
+  pedidos               Pedido[]
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([data])
+  @@index([status])
+  @@index([lalamoveOrderId])
+}
+
+model HistoricoStatus {
+  id          String   @id @default(uuid())
+  pedidoId    String
+  pedido      Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  statusAnterior String?
+  statusNovo  String
+  observacao  String?
+  createdAt   DateTime @default(now())
+
+  @@index([pedidoId])
+}
+
+model Configuracao {
+  id              String   @id @default("config_principal")
+  nomeEmpresa     String   @default("Mirella Doces")
+  cep             String?
+  endereco        String?
+  numero          String?
+  complemento     String?
+  bairro          String?
+  cidade          String?
+  estado          String?
+  latitude        Float?
+  longitude       Float?
+  telefone        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Item {
+  id              String   @id @default(uuid())
+  nome            String
+  descricao       String?
+  altura          Float    @default(37)    // cm - padrão 37cm
+  largura         Float    @default(27)    // cm - padrão 27cm
+  comprimento     Float    @default(27)    // cm - padrão 27cm
+  peso            Float    @default(1)     // kg - padrão 1kg
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([nome])
+}

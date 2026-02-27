@@ -18,16 +18,16 @@ FROM node:18-alpine AS builder
 RUN apk add --no-cache openssl
 WORKDIR /app
 
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Gerar Prisma Client
 RUN npx prisma generate
 
-# Build da aplicação
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN yarn build
-
 # ═══════════════════════════════════════════════════════════
 # Runner (Produção)
 # ═══════════════════════════════════════════════════════════

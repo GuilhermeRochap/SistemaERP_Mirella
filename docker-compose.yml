@@ -17,23 +17,21 @@ services:
       - mirella_network
 
   app:
-    build:
-    context: .
-    args:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mirella}:${POSTGRES_PASSWORD:-mirella123}@db:5432/${POSTGRES_DB:-mirella_doces}?schema=public
+    build: .
+    restart: unless-stopped
     ports:
       - "80:3000"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-mirella}:${POSTGRES_PASSWORD:-mirella123}@db:5432/${POSTGRES_DB:-mirella_doces}?schema=public
-      - NODE_ENV=production
-      - GEOAPIFY_API_KEY=${GEOAPIFY_API_KEY}
-      - NEXT_PUBLIC_GEOAPIFY_API_KEY=${NEXT_PUBLIC_GEOAPIFY_API_KEY}
-      - LALAMOVE_API_KEY=${LALAMOVE_API_KEY}
-      - LALAMOVE_API_SECRET=${LALAMOVE_API_SECRET}
-      - LALAMOVE_ENV=${LALAMOVE_ENV:-production}
-      - OPEN_DELIVERY_CLIENT_ID=${OPEN_DELIVERY_CLIENT_ID}
-      - OPEN_DELIVERY_CLIENT_SECRET=${OPEN_DELIVERY_CLIENT_SECRET}
-      - OPEN_DELIVERY_BASE_URL=${OPEN_DELIVERY_BASE_URL:-https://api.opendelivery.com.br}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mirella}:${POSTGRES_PASSWORD:-mirella123}@db:5432/${POSTGRES_DB:-mirella_doces}?schema=public
+      NODE_ENV: production
+      GEOAPIFY_API_KEY: ${GEOAPIFY_API_KEY}
+      NEXT_PUBLIC_GEOAPIFY_API_KEY: ${NEXT_PUBLIC_GEOAPIFY_API_KEY}
+      LALAMOVE_API_KEY: ${LALAMOVE_API_KEY}
+      LALAMOVE_API_SECRET: ${LALAMOVE_API_SECRET}
+      LALAMOVE_ENV: ${LALAMOVE_ENV:-production}
+      OPEN_DELIVERY_CLIENT_ID: ${OPEN_DELIVERY_CLIENT_ID}
+      OPEN_DELIVERY_CLIENT_SECRET: ${OPEN_DELIVERY_CLIENT_SECRET}
+      OPEN_DELIVERY_BASE_URL: ${OPEN_DELIVERY_BASE_URL:-https://api.opendelivery.com.br}
     depends_on:
       db:
         condition: service_healthy

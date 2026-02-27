@@ -7,7 +7,7 @@ FROM node:18-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json yarn.lock* ./
 RUN yarn install --frozen-lockfile || yarn install
 
 # ═══════════════════════════════════════════════════════════
@@ -18,16 +18,19 @@ FROM node:18-alpine AS builder
 RUN apk add --no-cache openssl
 WORKDIR /app
 
-ARG DATABASE_URL
-ENV DATABASE_URL=$DATABASE_URL
+# ✅ DATABASE_URL temporário apenas para o build funcionar
+ENV DATABASE_URL="postgresql://mirella:mirella123@db:5432/mirella_doces?schema=public"
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Gerar Prisma Client
 RUN npx prisma generate
 
-ENV NEXT_TELEMETRY_DISABLED 1
+# Build da aplicação
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN yarn build
+
 # ═══════════════════════════════════════════════════════════
 # Runner (Produção)
 # ═══════════════════════════════════════════════════════════
@@ -36,8 +39,8 @@ FROM node:18-alpine AS runner
 RUN apk add --no-cache openssl
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -52,7 +55,7 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 USER nextjs
 
 EXPOSE 3000
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]

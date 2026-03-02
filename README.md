@@ -1,15 +1,19 @@
-# 🍰 Mirella Doces - Sistema de Rotas
-
+# Mirella Doces (Provisorio) - Sistema de Rotas
 Sistema de otimização de rotas para delivery.
+Eu tenho utilizado o Gerenciador Docker da Hostinger que é uma mão na roda,
+Eu faço alguma atualização no projeto so da Git e subir que ele atualiza la na VPS da Hostinger
+Pensando em criar outro Repositorio para Sandbox na hostinger porque aqui é o oficial
+O projeto está todo documentando por dentro para você se achar mas qualquer coisa me pergunta
+Se for fazer alguma alteração sobe em outra branch por favor
 
-## 🚀 Deploy Rápido (VPS Hostinger)
+## 🚀 Deploy Rápido (VPS Hostinger - Atualmente)
 
 ### 1. Clonar o repositório
 
 ```bash
 ssh root@SEU_IP_VPS
 cd /var/www
-git clone https://github.com/SEU_USUARIO/mirella-doces.git
+git clone https://github.com/GuilhermeRochap/SistemaERP_Mirella/edit/master/README.md
 cd mirella-doces
 ```
 
@@ -63,12 +67,12 @@ docker compose up -d --build
 Aguarde uns 30 segundos e rode:
 
 ```bash
-docker compose exec app npx prisma db push
+docker compose exec app npx prisma db push e migrate
 ```
 
 ### 6. Acessar
 
-Acesse: `http://SEU_IP_VPS`
+Acesse: `http://SEU_IP_SEILAMAISOQ`
 
 ---
 

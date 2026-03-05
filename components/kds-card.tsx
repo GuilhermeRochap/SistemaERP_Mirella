@@ -282,6 +282,19 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Data do pedido */}
+        {pedido?.dataEntrega && (
+          <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-2">
+            <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div>
+              <p className="text-xs text-muted-foreground leading-none mb-0.5">Data de Entrega</p>
+              <p className="font-bold text-sm capitalize">
+                {new Date(pedido.dataEntrega).toLocaleDateString('pt-BR')}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-muted-foreground">Iniciar às:</p>

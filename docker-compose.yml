@@ -1,3 +1,15 @@
+# ═══════════════════════════════════════════════════════════
+# MIRELLA DOCES — Docker Compose (Produção)
+# ═══════════════════════════════════════════════════════════
+# Atalhos disponíveis (requer make):
+#   make up          → sobe todos os serviços
+#   make down        → derruba todos os serviços
+#   make deploy      → deploy completo (git pull + rebuild + up)
+#   make update-app  → atualiza SOMENTE o app (banco fica rodando)
+#   make logs        → logs em tempo real do app
+#   make backup      → backup do banco de dados
+# ═══════════════════════════════════════════════════════════
+
 services:
   db:
     image: postgres:15-alpine

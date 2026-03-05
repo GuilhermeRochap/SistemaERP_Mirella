@@ -132,7 +132,7 @@ export async function POST(request: Request) {
         estado: body?.estado,
         latitude,
         longitude,
-        dataEntrega: new Date(body?.dataEntrega),
+        dataEntrega: new Date(`${body?.dataEntrega}T12:00:00`),
         horaEntrega: body?.horaEntrega,
         tempoEstimadoProducao: parseInt(body?.tempoEstimadoProducao),
         status: body?.status,

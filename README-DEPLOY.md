@@ -172,15 +172,38 @@ docker-compose exec -T db psql -U postgres -d mirella_doces_prod < backup.sql
 docker-compose exec app npx prisma migrate deploy
 ```
 
-### Atualizar aplicação
+### Atualizar aplicação (completo — derruba tudo e sobe novamente)
 
 ```bash
 cd /opt/mirella-doces-delivery
 git pull origin main
-docker-compose down
-docker-compose up -d --build
-docker-compose exec app npx prisma migrate deploy
+docker compose down
+docker compose up -d --build
+docker compose exec app npx prisma migrate deploy
 ```
+
+### ⚡ Atualizar SOMENTE o app (banco continua rodando)
+
+Use este fluxo quando o banco já está em produção e você **não quer derrubá-lo**:
+
+```bash
+cd /opt/mirella-doces-delivery
+
+# 1. Puxa o código novo
+git pull origin main
+
+# 2. Rebuilda apenas a imagem do app
+docker compose build app
+
+# 3. Recria o container app sem tocar no db
+docker compose up -d --no-deps app
+
+# 4. Acompanha os logs para confirmar que subiu
+docker compose logs -f app
+```
+
+> `--no-deps` garante que o serviço `db` (e o volume com os dados) **não é reiniciado**.
+
 
 ---
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Clock, Play, Pause, CheckCircle, AlertTriangle, EyeOff, Zap, Package } from 'lucide-react';
+import { Clock, Play, Pause, CheckCircle, AlertTriangle, EyeOff, Zap, Package, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { calcularTempoInicioProducao } from '@/lib/route-optimizer';
 
@@ -21,8 +21,19 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
 
+  const [isPausedLocally, setIsPausedLocally] = useState(false);
+
   // Inicializa o timer baseado no estado do pedido
   useEffect(() => {
+    // Se o pedido foi finalizado no banco, sempre força atualização
+    if (pedido?.statusProducao === 'Concluído' || pedido?.statusProducao === 'Aguardando Produção') {
+      setIsPausedLocally(false);
+    }
+
+    // Se estivermos em pausa local, ignoramos a atualização que vem do banco
+    // para não desfazer o nosso timer no front-end
+    if (isPausedLocally) return;
+
     // Limpa intervalo anterior
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -32,21 +43,21 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
     const tempoAcumulado = pedido?.tempoPausado || 0;
 
     if (pedido?.statusProducao === 'Em Produção') {
-      // Se está em produção, calcula tempo desde o início
+      // Se está em produção, calcula tempo desde o início + tempo já pausado anteriormente
       if (pedido?.inicioProducao) {
         const inicio = new Date(pedido.inicioProducao).getTime();
         const agora = Date.now();
         const tempoDesdeInicio = Math.floor((agora - inicio) / 1000);
-        setSeconds(tempoDesdeInicio);
-        startTimeRef.current = inicio;
+
+        setSeconds(tempoAcumulado + tempoDesdeInicio);
+        startTimeRef.current = inicio; // Guarda a referência do último início
       } else {
-        // Começou agora
         setSeconds(tempoAcumulado);
-        startTimeRef.current = Date.now() - (tempoAcumulado * 1000);
+        startTimeRef.current = Date.now();
       }
       setIsRunning(true);
     } else if (pedido?.statusProducao === 'Pausado') {
-      // Mostra o tempo pausado salvo
+      // Pausa que veio do banco (histórico)
       setSeconds(tempoAcumulado);
       setIsRunning(false);
     } else {
@@ -54,14 +65,14 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
       setSeconds(tempoAcumulado);
       setIsRunning(false);
     }
-  }, [pedido?.id, pedido?.statusProducao, pedido?.inicioProducao, pedido?.tempoPausado]);
+  }, [pedido?.id, pedido?.statusProducao, pedido?.inicioProducao, pedido?.tempoPausado, isPausedLocally]);
 
   // Timer que roda a cada segundo
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
         setSeconds(prev => prev + 1);
-        
+
         // Verificar se está atrasado
         const horarioInicio = calcularTempoInicioProducao(
           pedido?.horaEntrega ?? '00:00',
@@ -91,10 +102,33 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
 
   const handleAction = async (acao: string) => {
     try {
-      // Para pausar e concluir, envia o tempo atual do timer
+      if (acao === 'iniciar') {
+        setIsRunning(true);
+        setSeconds(0);
+        setIsPausedLocally(false);
+        startTimeRef.current = Date.now();
+      } else if (acao === 'retomar') {
+        setIsRunning(true);
+        setIsPausedLocally(false);
+        startTimeRef.current = Date.now();
+
+        // Retomada 100% no cache local, não bate na API e não faz onUpdate
+        return;
+      } else if (acao === 'pausar') {
+        setIsRunning(false);
+        setIsPausedLocally(true);
+
+        // Pausa 100% no cache local, não bate na API e não faz onUpdate
+        return;
+      } else if (acao === 'concluir') {
+        setIsRunning(false);
+        setIsPausedLocally(false);
+      }
+
+      // Envia a ação para o backend apenas para "iniciar" e "concluir"
       const payload: any = { pedidoId: pedido?.id, acao };
-      
-      if (acao === 'pausar' || acao === 'concluir') {
+
+      if (acao === 'concluir') {
         payload.tempoDecorrido = seconds;
       }
 
@@ -105,27 +139,20 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
       });
 
       if (response?.ok) {
-        // Para iniciar, inicia o timer local imediatamente
-        if (acao === 'iniciar') {
-          setIsRunning(true);
-          startTimeRef.current = Date.now();
-        } else if (acao === 'pausar') {
-          setIsRunning(false);
-        } else if (acao === 'retomar') {
-          setIsRunning(true);
-          startTimeRef.current = Date.now() - (seconds * 1000);
-        } else if (acao === 'concluir') {
-          setIsRunning(false);
+        if (acao === 'concluir') {
+          toast.success('Pedido concluído!');
+        } else {
+          toast.success('Status atualizado!');
         }
-        
-        toast.success('Status atualizado!');
         if (onUpdate) onUpdate();
       } else {
-        toast.error('Erro ao atualizar status');
+        toast.error('Erro ao salvar no banco');
+        if (onUpdate) onUpdate();
       }
     } catch (error) {
       console.error('Erro ao atualizar pedido:', error);
-      toast.error('Erro ao atualizar pedido');
+      toast.error('Erro de comunicação');
+      if (onUpdate) onUpdate();
     }
   };
 
@@ -167,7 +194,7 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
   // Tags do pedido
   const renderTags = () => {
     const tags = [];
-    
+
     if (pedido?.status === 'Urgente') {
       tags.push(
         <Badge key="urgente" className="bg-red-500 text-white flex items-center gap-1">
@@ -176,7 +203,7 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
         </Badge>
       );
     }
-    
+
     if (pedido?.pedidoAnonimo) {
       tags.push(
         <Badge key="anonimo" className="bg-purple-500 text-white flex items-center gap-1">
@@ -185,7 +212,7 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
         </Badge>
       );
     }
-    
+
     if (pedido?.origemPedido) {
       const origemColors: Record<string, string> = {
         'Site': 'bg-blue-500',
@@ -200,17 +227,53 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
         </Badge>
       );
     }
-    
+
     return tags;
+  };
+
+  const renderPeriodo = () => {
+    if (!pedido?.horaEntrega) return null;
+
+    const [hora] = pedido.horaEntrega.split(':').map(Number);
+    if (isNaN(hora)) return null;
+
+    if (hora >= 0 && hora < 12) {
+      return (
+        <Badge className="bg-yellow-400 hover:bg-yellow-500 text-yellow-950 border-transparent gap-1 px-3 py-1 text-sm font-bold shadow-sm">
+          <Clock className="w-4 h-4" />
+          Manhã
+        </Badge>
+      );
+    } else if (hora >= 12 && hora < 18) {
+      return (
+        <Badge className="bg-blue-500 hover:bg-blue-600 text-white border-transparent gap-1 px-3 py-1 text-sm font-bold shadow-sm">
+          <Clock className="w-4 h-4" />
+          Tarde
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge className="bg-purple-600 hover:bg-purple-700 text-white border-transparent gap-1 px-3 py-1 text-sm font-bold shadow-sm">
+          <Clock className="w-4 h-4" />
+          Noite
+        </Badge>
+      );
+    }
   };
 
   return (
     <Card className={`${getStatusColor()} border-2 ${isLate && pedido?.statusProducao !== 'Concluído' ? 'ring-2 ring-red-500 animate-pulse' : ''}`}>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <CardTitle className="flex items-start justify-between">
+          <div className="flex items-center gap-2 mt-1">
             {getStatusIcon()}
             <span className="text-lg font-bold">{pedido?.nomeRecebedor ?? 'Sem nome'}</span>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <span className="text-xl font-mono font-black text-white bg-red-600 px-3 py-1 rounded-md shadow-sm border border-slate-700">
+              #{pedido.id.slice(0, 8).toUpperCase()}
+            </span>
+            {renderPeriodo()}
           </div>
         </CardTitle>
         {/* Tags do pedido */}
@@ -263,12 +326,12 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
           <p className="text-sm">{pedido?.descricao ?? 'Sem descrição'}</p>
         </div>
 
-        {/* Mensagem anônima se existir */}
-        {pedido?.pedidoAnonimo && pedido?.mensagemAnonima && (
-          <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
-            <p className="text-purple-700 dark:text-purple-300 text-sm flex items-center gap-1">
-              <EyeOff className="w-3 h-3" />
-              Mensagem: "{pedido.mensagemAnonima}"
+        {/* Mensagem / Observação do pedido */}
+        {pedido?.mensagemAnonima && (
+          <div className={`p-3 rounded-lg border ${pedido?.pedidoAnonimo ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800' : 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'}`}>
+            <p className={`text-sm flex items-center gap-1 ${pedido?.pedidoAnonimo ? 'text-purple-700 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300'}`}>
+              {pedido?.pedidoAnonimo ? <EyeOff className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
+              &quot;{pedido.mensagemAnonima}&quot;
             </p>
           </div>
         )}

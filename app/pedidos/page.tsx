@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FormularioPedido } from '@/components/formulario-pedido';
-import { 
-  Search, Filter, Package, ChevronRight, Truck, 
+import {
+  Search, Filter, Package, ChevronRight, Truck,
   ChevronDown, ChevronUp, Route, Clock, Users, Navigation,
   Plus, List
 } from 'lucide-react';
@@ -65,13 +65,13 @@ function agruparPedidos(pedidos: Pedido[]): GrupoRota[] {
     const pedidoBase = pedidosRestantes.shift()!;
     const grupo: Pedido[] = [pedidoBase];
     const periodoBase = pedidoBase.horaEntrega?.substring(0, 2) ?? '00';
-    
+
     for (let i = pedidosRestantes.length - 1; i >= 0; i--) {
       const pedido = pedidosRestantes[i];
       const periodoPedido = pedido.horaEntrega?.substring(0, 2) ?? '00';
       const diffPeriodo = Math.abs(parseInt(periodoBase) - parseInt(periodoPedido));
       if (diffPeriodo > 2) continue;
-      
+
       if (pedido.latitude && pedido.longitude) {
         const ultimoPedido = grupo[grupo.length - 1];
         if (ultimoPedido.latitude && ultimoPedido.longitude) {
@@ -119,6 +119,7 @@ export default function PedidosPage() {
   const [filtroData, setFiltroData] = useState('');
   const [gruposExpandidos, setGruposExpandidos] = useState<Record<string, boolean>>({});
   const [secaoExpandida, setSecaoExpandida] = useState<Record<string, boolean>>({
+    'novos': true,
     'prontos': true,
     'em-andamento': true,
     'finalizados': false
@@ -157,14 +158,15 @@ export default function PedidosPage() {
     setAbaAtiva('gerenciar');
   };
 
-  const { pedidosProntos, pedidosEmAndamento, pedidosFinalizados } = useMemo(() => {
+  const { pedidosNovos, pedidosProntos, pedidosEmAndamento, pedidosFinalizados } = useMemo(() => {
+    const novos = pedidos.filter(p => p.statusProducao === 'Aguardando Produção');
     const prontos = pedidos.filter(p => p.statusProducao === 'Concluído' && !p.rotaId);
-    const emAndamento = pedidos.filter(p => 
-      ['Aguardando Produção', 'Em Produção', 'Pausado'].includes(p.statusProducao) ||
+    const emAndamento = pedidos.filter(p =>
+      ['Em Produção', 'Pausado'].includes(p.statusProducao) ||
       (p.statusProducao === 'Em Rota' && p.rotaId)
     );
     const finalizados = pedidos.filter(p => p.statusProducao === 'Entregue');
-    return { pedidosProntos: prontos, pedidosEmAndamento: emAndamento, pedidosFinalizados: finalizados };
+    return { pedidosNovos: novos, pedidosProntos: prontos, pedidosEmAndamento: emAndamento, pedidosFinalizados: finalizados };
   }, [pedidos]);
 
   const gruposRotaSugerida = useMemo(() => agruparPedidos(pedidosProntos), [pedidosProntos]);
@@ -343,10 +345,34 @@ export default function PedidosPage() {
             </div>
           ) : (
             <div className="space-y-3">
+              {/* Seção: Novos Pedidos (Aguardando Produção) */}
+              {pedidosNovos.length > 0 && (
+                <Card className="border-blue-200 dark:border-blue-800">
+                  <div
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleSecao('novos')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-blue-600" />
+                      <span className="font-semibold">Novos Pedidos</span>
+                      <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30">
+                        {pedidosNovos.length} aguardando produção
+                      </Badge>
+                    </div>
+                    {secaoExpandida['novos'] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  </div>
+                  {secaoExpandida['novos'] && (
+                    <CardContent className="pt-0 space-y-2">
+                      {pedidosNovos.map(renderPedidoCompleto)}
+                    </CardContent>
+                  )}
+                </Card>
+              )}
+
               {/* Seção: Prontos para Rota */}
               {gruposRotaSugerida.length > 0 && (
                 <Card className="border-green-200 dark:border-green-800">
-                  <div 
+                  <div
                     className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSecao('prontos')}
                   >
@@ -359,12 +385,12 @@ export default function PedidosPage() {
                     </div>
                     {secaoExpandida['prontos'] ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                   </div>
-                  
+
                   {secaoExpandida['prontos'] && (
                     <CardContent className="pt-0 space-y-2">
                       {gruposRotaSugerida.map((grupo) => (
                         <div key={grupo.id} className="border rounded-lg overflow-hidden">
-                          <div 
+                          <div
                             className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30"
                             onClick={() => toggleGrupo(grupo.id)}
                           >
@@ -410,7 +436,7 @@ export default function PedidosPage() {
               {/* Seção: Em Andamento */}
               {pedidosEmAndamento.length > 0 && (
                 <Card className="border-blue-200 dark:border-blue-800">
-                  <div 
+                  <div
                     className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSecao('em-andamento')}
                   >
@@ -434,7 +460,7 @@ export default function PedidosPage() {
               {/* Seção: Entregues */}
               {pedidosFinalizados.length > 0 && (
                 <Card className="border-gray-200 dark:border-gray-700">
-                  <div 
+                  <div
                     className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSecao('finalizados')}
                   >

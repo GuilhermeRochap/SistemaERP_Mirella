@@ -30,19 +30,19 @@ interface MapaLeafletProps {
 }
 
 // Buscar rota real pelas ruas usando OSRM (Open Source Routing Machine) - gratuito
-async function buscarRotaReal(waypoints: Array<{lat: number, lon: number}>): Promise<L.LatLngTuple[] | null> {
+async function buscarRotaReal(waypoints: Array<{ lat: number, lon: number }>): Promise<L.LatLngTuple[] | null> {
   try {
     if (waypoints.length < 2) return null;
 
     // OSRM espera formato: lon,lat;lon,lat;...
     const coords = waypoints.map(w => `${w.lon},${w.lat}`).join(';');
     const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
-    
+
     const response = await fetch(url);
     if (!response.ok) return null;
-    
+
     const data = await response.json();
-    
+
     // Extrair coordenadas da rota
     if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
       const geometry = data.routes[0].geometry;
@@ -58,14 +58,14 @@ async function buscarRotaReal(waypoints: Array<{lat: number, lon: number}>): Pro
 }
 
 // Componente interno do mapa (para evitar SSR)
-function MapaInterno({ 
-  origem, 
-  destinos, 
+function MapaInterno({
+  origem,
+  destinos,
   containerId,
   altura = '300px'
-}: { 
-  origem: MapaLeafletProps['origem']; 
-  destinos: Destino[]; 
+}: {
+  origem: MapaLeafletProps['origem'];
+  destinos: Destino[];
   containerId: string;
   altura?: string;
 }) {
@@ -91,11 +91,11 @@ function MapaInterno({
     // Criar icones personalizados
     const createIcon = (color: string, label?: string) => {
       const svgHouse = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
-      
-      const html = label 
+
+      const html = label
         ? '<div style="background-color: ' + color + '; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">' + label + '</div>'
         : '<div style="background-color: ' + color + '; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">' + svgHouse + '</div>';
-      
+
       return L.divIcon({
         html,
         className: 'custom-marker',
@@ -150,7 +150,7 @@ function MapaInterno({
       [origem.latitude, origem.longitude],
       ...destinos.map(d => [d.latitude, d.longitude] as L.LatLngTuple),
     ];
-    
+
     const tempLine = L.polyline(fallbackPoints, {
       color: '#dc2626',
       weight: 3,
@@ -163,7 +163,7 @@ function MapaInterno({
       if (rotaReal && rotaReal.length > 0 && mapRef.current) {
         // Remover linha temporaria
         map.removeLayer(tempLine);
-        
+
         // Desenhar rota real
         L.polyline(rotaReal, {
           color: '#dc2626',
@@ -186,20 +186,20 @@ function MapaInterno({
 
   if (!mounted) {
     return (
-      <div className="flex items-center justify-center bg-muted" style={{ height: altura }}>
+      <div className="flex items-center justify-center bg-muted relative z-0" style={{ height: altura }}>
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  return <div id={containerId} style={{ height: altura, width: '100%' }} />;
+  return <div id={containerId} className="relative z-0" style={{ height: altura, width: '100%' }} />;
 }
 
-export function MapaLeaflet({ 
-  origem, 
-  destinos, 
-  tipoVeiculo, 
-  distanciaTotal, 
+export function MapaLeaflet({
+  origem,
+  destinos,
+  tipoVeiculo,
+  distanciaTotal,
   tempoEstimado,
   altura = '300px'
 }: MapaLeafletProps) {
@@ -234,9 +234,9 @@ export function MapaLeaflet({
               <Map className="w-4 h-4 text-primary" />
               Mapa da Rota
             </CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setModalAberto(true)}
               className="h-7 text-xs"
             >
@@ -246,13 +246,13 @@ export function MapaLeaflet({
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <MapaInterno 
-            origem={origem} 
-            destinos={destinos} 
+          <MapaInterno
+            origem={origem}
+            destinos={destinos}
             containerId={mapId.current}
             altura={altura}
           />
-          
+
           {/* Info da rota */}
           <div className="p-3 border-t bg-muted/30">
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -293,14 +293,14 @@ export function MapaLeaflet({
               Visualizacao ampliada da rota de entrega com origem e destinos.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Mapa grande */}
             <div className="rounded-lg overflow-hidden border">
               {modalAberto && (
-                <MapaInterno 
-                  origem={origem} 
-                  destinos={destinos} 
+                <MapaInterno
+                  origem={origem}
+                  destinos={destinos}
                   containerId={modalMapId.current}
                   altura="400px"
                 />

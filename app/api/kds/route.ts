@@ -74,6 +74,13 @@ export async function POST(request: Request) {
           dadosAtualizacao.tempoPausado = tempoDecorrido;
         }
         break;
+      case 'voltar-kds':
+        novoStatus = 'Aguardando Produção';
+        dadosAtualizacao.fimProducao = null;
+        dadosAtualizacao.inicioProducao = null;
+        dadosAtualizacao.tempoPausado = 0;
+        dadosAtualizacao.rotaId = null;
+        break;
       default:
         return NextResponse.json(
           { error: 'Ação inválida' },

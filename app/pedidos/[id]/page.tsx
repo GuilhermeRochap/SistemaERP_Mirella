@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ResumoPedidoImpressao } from '@/components/resumo-pedido-impressao';
+import { CartaoMensagemA6 } from '@/components/cartao-mensagem-a6';
 import {
   ArrowLeft,
   Package,
@@ -20,6 +21,7 @@ import {
   ShoppingCart,
   EyeOff,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -62,6 +64,28 @@ export default function PedidoDetalhesPage() {
     fetchPedido();
     fetchConfig();
   }, [params.id, router]);
+
+  const handleDelete = async () => {
+    if (!window.confirm('Tem certeza que deseja excluir este pedido? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/pedidos/${params.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast.success('Pedido excluído com sucesso');
+        router.push('/pedidos');
+      } else {
+        toast.error('Erro ao excluir pedido');
+      }
+    } catch (error) {
+      console.error('Erro ao excluir pedido:', error);
+      toast.error('Erro ao excluir pedido');
+    }
+  };
 
   const formatarData = (data: string) => {
     return new Date(data).toLocaleDateString('pt-BR');
@@ -136,6 +160,14 @@ export default function PedidoDetalhesPage() {
             {pedido.statusProducao}
           </span>
           <ResumoPedidoImpressao pedido={pedido} nomeEmpresa={config?.nomeEmpresa} />
+          <CartaoMensagemA6
+            mensagem={pedido.mensagemAnonima}
+            nomeRecebedor={pedido.nomeRecebedor}
+            pedidoAnonimo={pedido.pedidoAnonimo}
+          />
+          <Button variant="destructive" size="icon" onClick={handleDelete} title="Excluir Pedido">
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
@@ -174,12 +206,20 @@ export default function PedidoDetalhesPage() {
                 <>
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-400" />
-                    <span>{pedido.nomeComprador}</span>
+                    <span>{pedido.nomeComprador || 'Não informado'}</span>
                   </div>
                   {pedido.telefoneComprador && (
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-gray-400" />
                       <span>{pedido.telefoneComprador}</span>
+                    </div>
+                  )}
+                  {pedido.mensagemAnonima && (
+                    <div className="mt-3 bg-gray-50 dark:bg-gray-900/20 p-3 rounded-lg border">
+                      <div className="text-sm flex items-start gap-2">
+                        <MessageSquare className="w-4 h-4 mt-0.5 text-gray-500" />
+                        <span>&quot;{pedido.mensagemAnonima}&quot;</span>
+                      </div>
                     </div>
                   )}
                 </>

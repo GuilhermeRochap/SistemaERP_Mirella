@@ -40,16 +40,16 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { 
-      cep, 
-      endereco, 
-      numero, 
-      complemento, 
-      bairro, 
-      cidade, 
+    const {
+      cep,
+      endereco,
+      numero,
+      complemento,
+      bairro,
+      cidade,
       estado,
       regeocoding,
-      ...otherFields 
+      ...otherFields
     } = body;
 
     // Preparar dados para atualização
@@ -69,10 +69,10 @@ export async function PUT(
     // Se regeocoding for true, buscar novas coordenadas
     if (regeocoding && endereco && cidade) {
       console.log('[PUT Pedido] Re-geocodificando endereço:', { endereco, numero, bairro, cidade, estado });
-      
+
       const enderecoCompleto = `${endereco}, ${numero || ''}, ${bairro || ''}, ${cidade}, ${estado || 'SP'}, Brasil`;
       const resultado = await geocodificarEndereco(enderecoCompleto);
-      
+
       if (resultado) {
         updateData.latitude = resultado.latitude;
         updateData.longitude = resultado.longitude;
@@ -92,6 +92,25 @@ export async function PUT(
     console.error('Erro ao atualizar pedido:', error);
     return NextResponse.json(
       { error: 'Erro ao atualizar pedido' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    await db.pedido.delete({
+      where: { id: params.id },
+    });
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error('Erro ao excluir pedido:', error);
+    return NextResponse.json(
+      { error: 'Erro ao excluir pedido' },
       { status: 500 }
     );
   }

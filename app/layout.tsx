@@ -35,7 +35,6 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <script src="https://apps.abacus.ai/chatllm/appllm-lib.js"></script>
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider
@@ -112,7 +111,7 @@ export default function RootLayout({
                       className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-red-700 transition-colors text-white text-sm"
                     >
                       <Settings className="w-4 h-4" />
-                      <span className="hidden md:inline">Config</span>
+                      <span className="hidden md:inline">Configurações</span>
                     </Link>
                     <div className="ml-2 border-l border-red-500 pl-2">
                       <ThemeToggle />

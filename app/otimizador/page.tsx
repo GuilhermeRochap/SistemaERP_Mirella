@@ -7,12 +7,27 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Truck, Package, MapPin, Clock, TrendingUp, Bike, Car, RefreshCw, Loader2, AlertCircle, Users, CheckCircle2, Zap, Edit, Save, X, Search } from 'lucide-react';
+import { Truck, Package, MapPin, Clock, TrendingUp, Bike, Car, RefreshCw, Loader2, AlertCircle, Users, CheckCircle2, Zap, Edit, Save, X, Search, RotateCcw, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Importar Leaflet dinamicamente para evitar SSR
-const MapaLeaflet = dynamic(() => import('@/components/mapa-leaflet'), { 
+const MapaLeaflet = dynamic(() => import('@/components/mapa-leaflet'), {
   ssr: false,
   loading: () => <div className="h-[200px] bg-muted animate-pulse rounded-lg" />
 });
@@ -74,6 +89,85 @@ interface EnderecoEdicao {
   estado: string;
 }
 
+// Componente de item sortável (drag and drop)
+function SortablePedidoItem({
+  pedido,
+  idx,
+  onVoltarKds,
+  onEditarEndereco,
+}: {
+  pedido: any;
+  idx: number;
+  onVoltarKds: (id: string) => void;
+  onEditarEndereco: (pedido: any) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: pedido.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between bg-card rounded-lg px-3 py-2 border"
+    >
+      <div className="flex items-center gap-2">
+        {/* Handle de drag */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded touch-none"
+          title="Arrastar para reordenar"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+        <span className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
+          {idx + 1}
+        </span>
+        <div className="min-w-0">
+          <p className="font-medium text-sm truncate">{pedido.nomeRecebedor}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {pedido.endereco}, {pedido.numero} - {pedido.bairro}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onVoltarKds(pedido.id)}
+          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-2"
+          title="Voltar para o KDS"
+        >
+          <RotateCcw className="w-4 h-4 mr-1" />
+          KDS
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onEditarEndereco(pedido)}
+          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 h-8 px-2"
+        >
+          <Edit className="w-4 h-4 mr-1" />
+          Editar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function OtimizadorPage() {
   const [loading, setLoading] = useState(true);
   const [loadingCriacao, setLoadingCriacao] = useState(false);
@@ -81,7 +175,39 @@ export default function OtimizadorPage() {
   const [rotasCriadas, setRotasCriadas] = useState<Rota[]>([]);
   const [semPedidos, setSemPedidos] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  
+  // Mapa de ordem de pedidos por grupo (para drag and drop)
+  const [ordemPorGrupo, setOrdemPorGrupo] = useState<Record<number, any[]>>({});
+
+  // Sincroniza a ordem local sempre que os grupos mudarem
+  useEffect(() => {
+    if (gruposCotacao?.grupos) {
+      const novaOrdem: Record<number, any[]> = {};
+      gruposCotacao.grupos.forEach((g) => {
+        // Preservar a ordem custom se o grupo já existia
+        if (ordemPorGrupo[g.grupoId] && ordemPorGrupo[g.grupoId].length === g.pedidos.length) {
+          novaOrdem[g.grupoId] = ordemPorGrupo[g.grupoId];
+        } else {
+          novaOrdem[g.grupoId] = g.pedidos;
+        }
+      });
+      setOrdemPorGrupo(novaOrdem);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gruposCotacao]);
+
+  const sensors = useSensors(useSensor(PointerSensor));
+
+  const handleDragEnd = (grupoId: number) => (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setOrdemPorGrupo((prev) => {
+      const pedidos = prev[grupoId] ?? [];
+      const oldIndex = pedidos.findIndex((p: any) => p.id === active.id);
+      const newIndex = pedidos.findIndex((p: any) => p.id === over.id);
+      return { ...prev, [grupoId]: arrayMove(pedidos, oldIndex, newIndex) };
+    });
+  };
+
   // Estados para edição de endereço
   const [modalEdicao, setModalEdicao] = useState(false);
   const [pedidoEditando, setPedidoEditando] = useState<any>(null);
@@ -89,16 +215,37 @@ export default function OtimizadorPage() {
   const [salvandoEndereco, setSalvandoEndereco] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
 
+  // Voltar pedido para o KDS
+  const voltarParaKds = async (pedidoId: string) => {
+    if (!window.confirm('Deseja enviar este pedido de volta para o KDS? Ele voltará para "Aguardando Produção".'))
+      return;
+    try {
+      const response = await fetch('/api/kds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pedidoId, acao: 'voltar-kds' }),
+      });
+      if (response.ok) {
+        toast.success('Pedido devolvido ao KDS!');
+        await carregarEAgrupar();
+      } else {
+        toast.error('Erro ao devolver pedido');
+      }
+    } catch {
+      toast.error('Erro ao devolver pedido');
+    }
+  };
+
   // Buscar endereço por CEP
   const buscarCep = async (cep: string) => {
     const cepLimpo = cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
-    
+
     setBuscandoCep(true);
     try {
       const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
       const data = await response.json();
-      
+
       if (!data.erro && enderecoTemp) {
         setEnderecoTemp({
           ...enderecoTemp,
@@ -135,7 +282,7 @@ export default function OtimizadorPage() {
   // Salvar endereço editado e re-geocodificar
   const salvarEndereco = async () => {
     if (!enderecoTemp || !pedidoEditando) return;
-    
+
     setSalvandoEndereco(true);
     try {
       // Atualizar o pedido com novo endereço e re-geocodificar
@@ -153,16 +300,16 @@ export default function OtimizadorPage() {
           regeocoding: true, // Flag para re-geocodificar
         }),
       });
-      
+
       if (!response.ok) {
         throw new Error('Erro ao salvar endereço');
       }
-      
+
       toast.success('Endereço atualizado! Recalculando rotas...');
       setModalEdicao(false);
       setPedidoEditando(null);
       setEnderecoTemp(null);
-      
+
       // Recarregar e reagrupar automaticamente
       await carregarEAgrupar();
     } catch (error) {
@@ -186,9 +333,9 @@ export default function OtimizadorPage() {
       if (!pedidosResponse.ok) {
         throw new Error('Erro ao buscar pedidos');
       }
-      
+
       const pedidos = await pedidosResponse.json();
-      
+
       if (!pedidos || pedidos.length === 0) {
         setSemPedidos(true);
         setLoading(false);
@@ -197,7 +344,7 @@ export default function OtimizadorPage() {
 
       // 2. Agrupar automaticamente e buscar cotações
       const pedidoIds = pedidos.map((p: any) => p.id);
-      
+
       const cotacaoResponse = await fetch('/api/rotas/cotacao-agrupada', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -210,13 +357,13 @@ export default function OtimizadorPage() {
       }
 
       const data = await cotacaoResponse.json();
-      
+
       // Auto-selecionar a cotação mais barata para cada grupo
       if (data.grupos) {
         data.grupos = data.grupos.map((grupo: GrupoCotacao) => {
           if (grupo.cotacoes && grupo.cotacoes.length > 0) {
             // Ordenar por preço e selecionar a mais barata
-            const cotacaoMaisBarata = [...grupo.cotacoes].sort((a, b) => 
+            const cotacaoMaisBarata = [...grupo.cotacoes].sort((a, b) =>
               parseFloat(a.price) - parseFloat(b.price)
             )[0];
             return { ...grupo, cotacaoSelecionada: cotacaoMaisBarata };
@@ -226,7 +373,7 @@ export default function OtimizadorPage() {
       }
 
       setGruposCotacao(data);
-      
+
       if (data.grupos?.length > 0) {
         toast.success(`${data.totalGrupos} grupo(s) criado(s) automaticamente!`);
       }
@@ -246,13 +393,13 @@ export default function OtimizadorPage() {
   // Selecionar cotação para um grupo
   const selecionarCotacaoGrupo = (grupoId: number, cotacao: Cotacao) => {
     if (!gruposCotacao) return;
-    
+
     setGruposCotacao(prev => {
       if (!prev) return prev;
       return {
         ...prev,
-        grupos: prev.grupos.map(g => 
-          g.grupoId === grupoId 
+        grupos: prev.grupos.map(g =>
+          g.grupoId === grupoId
             ? { ...g, cotacaoSelecionada: cotacao }
             : g
         ),
@@ -260,7 +407,7 @@ export default function OtimizadorPage() {
     });
   };
 
-  // Criar rota a partir de um grupo
+  // Criar rota a partir de um grupo (e chamar veículo automaticamente)
   const criarRotaDoGrupo = async (grupo: GrupoCotacao) => {
     if (!grupo.cotacaoSelecionada) {
       toast.error('Selecione uma cotação primeiro');
@@ -271,35 +418,60 @@ export default function OtimizadorPage() {
     try {
       const pedidoIds = grupo.pedidos.map(p => p.id);
       const tipoVeiculo = grupo.cotacaoSelecionada.vehicleName;
+      const serviceType = grupo.cotacaoSelecionada.serviceType;
 
+      // 1. Criar a rota
       const response = await fetch('/api/rotas/agrupar-manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           pedidoIds,
           tipoVeiculo,
           quotationId: grupo.cotacaoSelecionada.quotationId,
         }),
       });
 
-      if (response.ok) {
-        const rotaCriada = await response.json();
-        setRotasCriadas(prev => [...prev, rotaCriada]);
-        toast.success(`Rota do Grupo ${grupo.grupoId} criada!`);
-        
-        // Remover grupo da lista
-        setGruposCotacao(prev => {
-          if (!prev) return prev;
-          const novosGrupos = prev.grupos.filter(g => g.grupoId !== grupo.grupoId);
-          if (novosGrupos.length === 0) {
-            return null;
-          }
-          return { ...prev, grupos: novosGrupos, totalGrupos: novosGrupos.length };
-        });
-      } else {
+      if (!response.ok) {
         const error = await response.json();
         toast.error(error?.error ?? 'Erro ao criar rota');
+        return;
       }
+
+      const rotaCriada = await response.json();
+      toast.success(`Rota do Grupo ${grupo.grupoId} criada! Chamando veículo...`);
+
+      // 2. Chamar veículo automaticamente com a cotação já selecionada
+      try {
+        const veiculoResponse = await fetch(`/api/rotas/${rotaCriada.id}/chamar-veiculo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serviceType }),
+        });
+
+        if (veiculoResponse.ok) {
+          const veiculoData = await veiculoResponse.json();
+          toast.success(`🚗 Veículo chamado! Aguardando motorista...`);
+          // Atualizar a rota criada com os dados do Lalamove
+          rotaCriada.lalamoveOrderId = veiculoData.orderId;
+          rotaCriada.lalamoveStatus = veiculoData.status;
+        } else {
+          const veiculoError = await veiculoResponse.json();
+          toast.error(`Rota criada, mas erro ao chamar veículo: ${veiculoError?.error ?? 'Tente em Rotas'}`);
+        }
+      } catch (veiculoErr) {
+        console.error('Erro ao chamar veículo automaticamente:', veiculoErr);
+        toast.error('Rota criada! Chame o veículo manualmente em Rotas.');
+      }
+
+      setRotasCriadas(prev => [...prev, rotaCriada]);
+
+      // Remover grupo da lista
+      setGruposCotacao(prev => {
+        if (!prev) return prev;
+        const novosGrupos = prev.grupos.filter(g => g.grupoId !== grupo.grupoId);
+        if (novosGrupos.length === 0) return null;
+        return { ...prev, grupos: novosGrupos, totalGrupos: novosGrupos.length };
+      });
     } catch (error) {
       console.error('Erro ao criar rota:', error);
       toast.error('Erro ao criar rota');
@@ -308,7 +480,7 @@ export default function OtimizadorPage() {
     }
   };
 
-  // Criar todas as rotas de uma vez
+  // Criar todas as rotas de uma vez (e chamar veículos automaticamente)
   const criarTodasRotas = async () => {
     if (!gruposCotacao || gruposCotacao.grupos.length === 0) return;
 
@@ -320,34 +492,62 @@ export default function OtimizadorPage() {
 
     setLoadingCriacao(true);
     let criadas = 0;
+    let veiculosChamados = 0;
 
     for (const grupo of gruposComCotacao) {
       try {
         const pedidoIds = grupo.pedidos.map(p => p.id);
         const tipoVeiculo = grupo.cotacaoSelecionada!.vehicleName;
+        const serviceType = grupo.cotacaoSelecionada!.serviceType;
 
+        // 1. Criar rota
         const response = await fetch('/api/rotas/agrupar-manual', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             pedidoIds,
             tipoVeiculo,
             quotationId: grupo.cotacaoSelecionada!.quotationId,
           }),
         });
 
-        if (response.ok) {
-          const rotaCriada = await response.json();
-          setRotasCriadas(prev => [...prev, rotaCriada]);
-          criadas++;
+        if (!response.ok) continue;
+
+        const rotaCriada = await response.json();
+        criadas++;
+
+        // 2. Chamar veículo automaticamente
+        try {
+          const veiculoResponse = await fetch(`/api/rotas/${rotaCriada.id}/chamar-veiculo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serviceType }),
+          });
+
+          if (veiculoResponse.ok) {
+            const veiculoData = await veiculoResponse.json();
+            rotaCriada.lalamoveOrderId = veiculoData.orderId;
+            rotaCriada.lalamoveStatus = veiculoData.status;
+            veiculosChamados++;
+          }
+        } catch (veiculoErr) {
+          console.error(`Erro ao chamar veículo do grupo ${grupo.grupoId}:`, veiculoErr);
         }
+
+        setRotasCriadas(prev => [...prev, rotaCriada]);
       } catch (error) {
         console.error(`Erro ao criar rota do grupo ${grupo.grupoId}:`, error);
       }
     }
 
     if (criadas > 0) {
-      toast.success(`${criadas} rota(s) criada(s)!`);
+      if (veiculosChamados === criadas) {
+        toast.success(`✅ ${criadas} rota(s) criada(s) e ${veiculosChamados} veículo(s) chamado(s)!`);
+      } else if (veiculosChamados > 0) {
+        toast.success(`${criadas} rota(s) criada(s). ${veiculosChamados} veículo(s) chamado(s). Chame os demais em Rotas.`);
+      } else {
+        toast.success(`${criadas} rota(s) criada(s)! Chame os veículos em Rotas.`);
+      }
       setGruposCotacao(null);
     }
 
@@ -410,7 +610,7 @@ export default function OtimizadorPage() {
             Agrupamento automático por proximidade (máx. 10km) e limite de 10 pedidos por rota
           </p>
         </div>
-        
+
         <Card className="border-2 border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Package className="w-16 h-16 text-muted-foreground/50 mb-4" />
@@ -437,7 +637,7 @@ export default function OtimizadorPage() {
             Otimizador de Rotas
           </h1>
         </div>
-        
+
         <Card className="border-2 border-red-200">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
@@ -490,8 +690,8 @@ export default function OtimizadorPage() {
                     </p>
                   </div>
                 </div>
-                <Button 
-                  onClick={criarTodasRotas} 
+                <Button
+                  onClick={criarTodasRotas}
                   disabled={loadingCriacao}
                   className="bg-green-600 hover:bg-green-700"
                   size="lg"
@@ -545,39 +745,38 @@ export default function OtimizadorPage() {
                     altura="200px"
                   />
 
-                  {/* Lista de pedidos com botão de editar endereço */}
+                  {/* Lista de pedidos com drag and drop */}
                   <div className="bg-muted/50 rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <MapPin className="w-4 h-4" />
-                        Endereços de entrega
+                        Ordem de entrega
                       </p>
-                      <p className="text-xs text-muted-foreground">Clique em Editar para corrigir</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <GripVertical className="w-3 h-3" />
+                        Arraste para reordenar
+                      </p>
                     </div>
-                    {grupo.pedidos.map((pedido, idx) => (
-                      <div key={pedido.id} className="flex items-center justify-between bg-card rounded-lg px-3 py-2 border">
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                            {idx + 1}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{pedido.nomeRecebedor}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {pedido.endereco}, {pedido.numero} - {pedido.bairro}
-                            </p>
-                          </div>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => abrirEdicaoEndereco(pedido)}
-                          className="shrink-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                        >
-                          <Edit className="w-4 h-4 mr-1" />
-                          Editar
-                        </Button>
-                      </div>
-                    ))}
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd(grupo.grupoId)}
+                    >
+                      <SortableContext
+                        items={(ordemPorGrupo[grupo.grupoId] ?? grupo.pedidos).map((p: any) => p.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {(ordemPorGrupo[grupo.grupoId] ?? grupo.pedidos).map((pedido: any, idx: number) => (
+                          <SortablePedidoItem
+                            key={pedido.id}
+                            pedido={pedido}
+                            idx={idx}
+                            onVoltarKds={voltarParaKds}
+                            onEditarEndereco={abrirEdicaoEndereco}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
                   </div>
 
                   {/* Cotações */}
@@ -587,11 +786,10 @@ export default function OtimizadorPage() {
                         <div
                           key={cotacao.quotationId}
                           onClick={() => selecionarCotacaoGrupo(grupo.grupoId, cotacao)}
-                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            grupo.cotacaoSelecionada?.quotationId === cotacao.quotationId
-                              ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                              : 'border-gray-200 bg-card hover:border-orange-400'
-                          }`}
+                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${grupo.cotacaoSelecionada?.quotationId === cotacao.quotationId
+                            ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                            : 'border-gray-200 bg-card hover:border-orange-400'
+                            }`}
                         >
                           <div className="flex items-center gap-2">
                             <div className={`p-1.5 rounded ${getVehicleColor(cotacao.serviceType)}`}>
@@ -701,7 +899,7 @@ export default function OtimizadorPage() {
               Editar Endereço de Entrega
             </DialogTitle>
           </DialogHeader>
-          
+
           {pedidoEditando && enderecoTemp && (
             <div className="space-y-4 py-2">
               {/* Info do pedido */}
@@ -709,7 +907,7 @@ export default function OtimizadorPage() {
                 <p className="font-semibold">{pedidoEditando.nomeRecebedor}</p>
                 <p className="text-sm text-muted-foreground">Pedido #{pedidoEditando.id?.slice(0, 8)}</p>
               </div>
-              
+
               {/* CEP com busca */}
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -723,8 +921,8 @@ export default function OtimizadorPage() {
                   />
                 </div>
                 <div className="flex items-end">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => buscarCep(enderecoTemp.cep)}
                     disabled={buscandoCep}
                   >
@@ -736,7 +934,7 @@ export default function OtimizadorPage() {
                   </Button>
                 </div>
               </div>
-              
+
               {/* Endereço */}
               <div>
                 <Label htmlFor="endereco">Rua/Avenida</Label>
@@ -747,7 +945,7 @@ export default function OtimizadorPage() {
                   placeholder="Nome da rua"
                 />
               </div>
-              
+
               {/* Número e Complemento */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -769,7 +967,7 @@ export default function OtimizadorPage() {
                   />
                 </div>
               </div>
-              
+
               {/* Bairro */}
               <div>
                 <Label htmlFor="bairro">Bairro</Label>
@@ -780,7 +978,7 @@ export default function OtimizadorPage() {
                   placeholder="Bairro"
                 />
               </div>
-              
+
               {/* Cidade e Estado */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
@@ -805,17 +1003,17 @@ export default function OtimizadorPage() {
               </div>
             </div>
           )}
-          
+
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setModalEdicao(false)}
               disabled={salvandoEndereco}
             >
               <X className="w-4 h-4 mr-1" />
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={salvarEndereco}
               disabled={salvandoEndereco}
               className="bg-orange-600 hover:bg-orange-700"

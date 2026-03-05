@@ -11,56 +11,46 @@ export default function KDSPage() {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [periodoFilter, setPeriodoFilter] = useState<string>('all');
   const [somAtivo, setSomAtivo] = useState(true);
   const [novoPedido, setNovoPedido] = useState(false);
   const pedidosIdsRef = useRef<Set<string>>(new Set());
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Criar áudio de notificação
-  useEffect(() => {
-    // Criar um som de notificação usando Web Audio API
-    const createNotificationSound = () => {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // Nota A5
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-      
-      // Segundo beep
-      setTimeout(() => {
-        const osc2 = audioContext.createOscillator();
-        const gain2 = audioContext.createGain();
-        osc2.connect(gain2);
-        gain2.connect(audioContext.destination);
-        osc2.frequency.setValueAtTime(1046.5, audioContext.currentTime); // Nota C6
-        osc2.type = 'sine';
-        gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        osc2.start(audioContext.currentTime);
-        osc2.stop(audioContext.currentTime + 0.5);
-      }, 200);
-    };
 
-    // Armazenar a função para uso posterior
-    (window as any).playNotificationSound = createNotificationSound;
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Inicializar AudioContext após interação do usuário
+  const initAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    // Retomar se estiver suspenso (política de autoplay)
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
   }, []);
 
   const tocarSomNotificacao = useCallback(() => {
     if (!somAtivo) return;
     try {
-      if ((window as any).playNotificationSound) {
-        (window as any).playNotificationSound();
-      }
+      const ctx = audioContextRef.current;
+      if (!ctx) return;
+
+      const playBeep = (freq: number, delay: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + 0.5);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.5);
+      };
+
+      playBeep(880, 0);      // Nota A5
+      playBeep(1046.5, 0.3); // Nota C6
     } catch (error) {
       console.error('Erro ao tocar som:', error);
     }
@@ -70,12 +60,12 @@ export default function KDSPage() {
     try {
       const response = await fetch('/api/kds');
       const data = await response?.json?.() ?? [];
-      
+
       // Verificar se há novos pedidos
       const novosIds = data
         .filter((p: any) => !pedidosIdsRef.current.has(p.id))
         .map((p: any) => p.id);
-      
+
       if (novosIds.length > 0 && pedidosIdsRef.current.size > 0) {
         // Há novos pedidos!
         setNovoPedido(true);
@@ -84,11 +74,11 @@ export default function KDSPage() {
           icon: '🔔',
           duration: 4000,
         });
-        
+
         // Remover indicador após 3 segundos
         setTimeout(() => setNovoPedido(false), 3000);
       }
-      
+
       // Atualizar ref com todos os IDs
       pedidosIdsRef.current = new Set(data.map((p: any) => p.id));
       setPedidos(data);
@@ -106,8 +96,23 @@ export default function KDSPage() {
   }, []);
 
   const filteredPedidos = pedidos?.filter?.((p) => {
-    if (filter === 'all') return true;
-    return p?.statusProducao === filter;
+    // Filtro de Status
+    if (filter !== 'all' && p?.statusProducao !== filter) {
+      return false;
+    }
+
+    // Filtro de Período
+    if (periodoFilter !== 'all') {
+      if (!p?.horaEntrega) return false;
+      const [hora] = p.horaEntrega.split(':').map(Number);
+      if (isNaN(hora)) return false;
+
+      if (periodoFilter === 'manha' && (hora < 0 || hora >= 12)) return false;
+      if (periodoFilter === 'tarde' && (hora < 12 || hora >= 18)) return false;
+      if (periodoFilter === 'noite' && (hora < 18)) return false;
+    }
+
+    return true;
   }) ?? [];
 
   if (loading) {
@@ -140,7 +145,10 @@ export default function KDSPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            onClick={() => setSomAtivo(!somAtivo)}
+            onClick={() => {
+              initAudioContext(); // <-- Desbloqueia o AudioContext com interação do usuário
+              setSomAtivo(!somAtivo);
+            }}
             variant="outline"
             size="sm"
             className={somAtivo ? 'text-green-600' : 'text-gray-400'}
@@ -155,24 +163,47 @@ export default function KDSPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {[
-          { value: 'all', label: 'Todos' },
-          { value: 'Aguardando Produção', label: 'Aguardando' },
-          { value: 'Em Produção', label: 'Em Produção' },
-          { value: 'Pausado', label: 'Pausados' },
-          { value: 'Concluído', label: 'Concluídos' },
-        ]?.map?.((f) => (
-          <Button
-            key={f?.value}
-            onClick={() => setFilter(f?.value ?? 'all')}
-            variant={filter === f?.value ? 'default' : 'outline'}
-            size="sm"
-          >
-            {f?.label}
-          </Button>
-        ))}
+      {/* Filters Area */}
+      <div className="flex flex-col gap-3 pb-2">
+        {/* Status Filters */}
+        <div className="flex gap-2 overflow-x-auto">
+          {[
+            { value: 'all', label: 'Todos Status' },
+            { value: 'Aguardando Produção', label: 'Aguardando' },
+            { value: 'Em Produção', label: 'Em Produção' },
+            { value: 'Pausado', label: 'Pausados' },
+            { value: 'Concluído', label: 'Concluídos' },
+          ]?.map?.((f) => (
+            <Button
+              key={f?.value}
+              onClick={() => setFilter(f?.value ?? 'all')}
+              variant={filter === f?.value ? 'default' : 'outline'}
+              size="sm"
+            >
+              {f?.label}
+            </Button>
+          ))}
+        </div>
+
+        {/* Period Filters */}
+        <div className="flex gap-2 overflow-x-auto">
+          {[
+            { value: 'all', label: 'Qualquer Período', colorClass: '' },
+            { value: 'manha', label: 'Manhã', colorClass: periodoFilter === 'manha' ? 'bg-red-600 text-white hover:bg-red-500 border-transparent' : 'border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950' },
+            { value: 'tarde', label: 'Tarde', colorClass: periodoFilter === 'tarde' ? 'bg-red-600 text-white hover:bg-red-500 border-transparent' : 'border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950' },
+            { value: 'noite', label: 'Noite', colorClass: periodoFilter === 'noite' ? 'bg-red-600 text-white hover:bg-red-500 border-transparent' : 'border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950' },
+          ]?.map?.((f) => (
+            <Button
+              key={f?.value}
+              onClick={() => setPeriodoFilter(f?.value)}
+              variant={periodoFilter === f?.value && f.value === 'all' ? 'default' : 'outline'}
+              size="sm"
+              className={f.colorClass}
+            >
+              {f?.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Cards Grid */}

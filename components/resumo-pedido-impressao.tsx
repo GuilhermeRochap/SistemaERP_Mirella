@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { Button } from './ui/button';
-import { Printer, Eye, X } from 'lucide-react';
+import { Printer, Eye, MessageSquare } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -67,8 +67,9 @@ export function ResumoPedidoImpressao({ pedido, nomeEmpresa = 'Mirella Doces' }:
               box-sizing: border-box;
             }
             body {
-              font-family: 'Courier New', Courier, monospace;
+              font-family: Arial, Helvetica, sans-serif;
               font-size: 12px;
+              font-weight: bold;
               line-height: 1.4;
               padding: 8px;
               width: 80mm;
@@ -156,6 +157,59 @@ export function ResumoPedidoImpressao({ pedido, nomeEmpresa = 'Mirella Doces' }:
     }, 250);
   };
 
+  const handlePrintA6 = () => {
+    const mensagem = pedido.mensagemAnonima?.trim() || (pedido.pedidoAnonimo ? 'Este presente foi enviado anonimamente.' : '');
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const logoSvg = `<svg viewBox="0 0 120 140" width="72" height="84" xmlns="http://www.w3.org/2000/svg">
+      <path d="M48 38 Q44 22 36 20 Q42 28 40 38 Z" fill="#5a9e3a"/>
+      <path d="M60 32 Q60 14 54 12 Q56 24 58 34 Z" fill="#5a9e3a"/>
+      <path d="M72 38 Q76 22 84 20 Q78 28 80 38 Z" fill="#5a9e3a"/>
+      <path d="M38 48 Q30 60 30 78 Q30 105 60 118 Q90 105 90 78 Q90 60 82 48 Q72 44 60 44 Q48 44 38 48 Z" fill="#c0392b" stroke="#a93226" stroke-width="1.5"/>
+      <ellipse cx="50" cy="65" rx="2.5" ry="3" fill="#f5b7b1" transform="rotate(-10 50 65)"/>
+      <ellipse cx="70" cy="65" rx="2.5" ry="3" fill="#f5b7b1" transform="rotate(10 70 65)"/>
+      <ellipse cx="45" cy="82" rx="2.5" ry="3" fill="#f5b7b1" transform="rotate(-8 45 82)"/>
+      <ellipse cx="60" cy="80" rx="2.5" ry="3" fill="#f5b7b1"/>
+      <ellipse cx="75" cy="82" rx="2.5" ry="3" fill="#f5b7b1" transform="rotate(8 75 82)"/>
+      <ellipse cx="52" cy="97" rx="2.5" ry="3" fill="#f5b7b1" transform="rotate(-5 52 97)"/>
+      <ellipse cx="68" cy="97" rx="2.5" ry="3" fill="#f5b7b1" transform="rotate(5 68 97)"/>
+      <path d="M44 95 L44 73 Q44 68 50 68 Q56 68 57 74 Q58 68 64 68 Q70 68 70 74 L70 95" fill="none" stroke="white" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+
+    printWindow.document.write(`<!DOCTYPE html><html><head>
+      <title>Cartao - ${pedido.nomeRecebedor}</title>
+      <meta charset="utf-8"/>
+      <style>
+        @page { size: A6 portrait; margin: 0; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+          width:105mm; height:148mm;
+          background:white;
+          font-family: Georgia,'Times New Roman',serif;
+          color:#333;
+          display:flex; flex-direction:column;
+          align-items:center; justify-content:space-between;
+          padding:14mm 12mm 12mm 12mm;
+        }
+        .mensagem { font-size:15px; line-height:1.75; font-style:italic; text-align:center; white-space:pre-wrap; }
+        .para { font-size:13px; color:#999; font-style:italic; margin-bottom:10px; }
+        .nome { font-size:28px; color:#c0392b; font-style:italic; font-weight:bold; letter-spacing:1px; }
+      </style>
+    </head><body>
+      <div style="text-align:center">${logoSvg}</div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:8mm 0;width:100%">
+        ${pedido.nomeRecebedor ? `<p class="para">Para: ${pedido.nomeRecebedor}</p>` : ''}
+        ${mensagem ? `<p class="mensagem">&ldquo;${mensagem}&rdquo;</p>` : '<p style="color:#bbb;font-style:italic">(sem mensagem)</p>'}
+      </div>
+      <div style="text-align:center"><span class="nome">Mirella Doces</span></div>
+    </body></html>`);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
+  };
+
   const formatarData = (data: string) => {
     return new Date(data).toLocaleDateString('pt-BR');
   };
@@ -195,7 +249,7 @@ export function ResumoPedidoImpressao({ pedido, nomeEmpresa = 'Mirella Doces' }:
       {/* Dados do Cliente/Recebedor */}
       <div className="section">
         <div className="section-title">Dados da Entrega</div>
-        
+
         {pedido.pedidoAnonimo ? (
           <>
             <div className="anonimo-msg">
@@ -313,17 +367,21 @@ export function ResumoPedidoImpressao({ pedido, nomeEmpresa = 'Mirella Doces' }:
             Pré-visualização do Resumo
           </DialogTitle>
         </DialogHeader>
-        
+
         {/* Preview */}
         <div className="bg-white text-black p-4 rounded border font-mono text-xs leading-relaxed" style={{ maxWidth: '80mm', margin: '0 auto' }}>
           {renderConteudo()}
         </div>
 
         {/* Botões de Ação */}
-        <div className="flex justify-end gap-2 mt-4 print:hidden">
+        <div className="flex justify-between items-center mt-4 print:hidden">
+          <Button variant="outline" onClick={handlePrintA6} className="border-red-300 text-red-700 hover:bg-red-50">
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Cartão A6
+          </Button>
           <Button onClick={handlePrint} className="bg-red-600 hover:bg-red-700">
             <Printer className="w-4 h-4 mr-2" />
-            Imprimir
+            Imprimir Resumo
           </Button>
         </div>
       </DialogContent>

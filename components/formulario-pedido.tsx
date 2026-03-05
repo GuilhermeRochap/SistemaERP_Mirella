@@ -181,7 +181,7 @@ export function FormularioPedido({ onSuccess }: { onSuccess?: () => void }) {
       const response = await fetch('/api/frete/calcular', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           cep: formData.cep,
           endereco: formData.endereco,
           bairro: formData.bairro,
@@ -241,7 +241,7 @@ export function FormularioPedido({ onSuccess }: { onSuccess?: () => void }) {
         return;
       }
 
-      if (!validarTelefone(formData?.telefone ?? '')) {
+      if (formData?.telefone?.trim() && !validarTelefone(formData.telefone)) {
         toast.error('Telefone inválido');
         setLoading(false);
         return;
@@ -381,10 +381,10 @@ export function FormularioPedido({ onSuccess }: { onSuccess?: () => void }) {
               />
             </div>
           </div>
-          
-          {/* Pedido Anônimo */}
-          <div className="border-t pt-4 mt-4">
-            <div className="flex items-center space-x-3 mb-3">
+
+          {/* Pedido Anônimo e Mensagem */}
+          <div className="border-t pt-4 mt-4 space-y-4">
+            <div className="flex items-center space-x-3">
               <Checkbox
                 id="pedidoAnonimo"
                 checked={formData?.pedidoAnonimo ?? false}
@@ -395,22 +395,21 @@ export function FormularioPedido({ onSuccess }: { onSuccess?: () => void }) {
                 Pedido Anônimo (ocultar dados do comprador na entrega)
               </Label>
             </div>
-            {formData?.pedidoAnonimo && (
-              <div>
-                <Label htmlFor="mensagemAnonima" className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  Mensagem Personalizada (opcional)
-                </Label>
-                <Textarea
-                  id="mensagemAnonima"
-                  value={formData?.mensagemAnonima ?? ''}
-                  onChange={(e) => setFormData({ ...formData, mensagemAnonima: e?.target?.value ?? '' })}
-                  placeholder="Deixe uma mensagem especial... (Se vazio, usará: &quot;Este presente foi enviado anonimamente.&quot;)"
-                  rows={2}
-                  className="mt-1"
-                />
-              </div>
-            )}
+
+            <div>
+              <Label htmlFor="mensagemAnonima" className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-gray-500" />
+                Mensagem do Presente / Observação (opcional)
+              </Label>
+              <Textarea
+                id="mensagemAnonima"
+                value={formData?.mensagemAnonima ?? ''}
+                onChange={(e) => setFormData({ ...formData, mensagemAnonima: e?.target?.value ?? '' })}
+                placeholder={formData?.pedidoAnonimo ? "Deixe uma mensagem especial... (Se vazio, usará: \"Este presente foi enviado anonimamente.\")" : "Deixe uma mensagem para o recebedor ou observação do pedido..."}
+                rows={2}
+                className="mt-1"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -437,12 +436,11 @@ export function FormularioPedido({ onSuccess }: { onSuccess?: () => void }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="telefone">Telefone do Recebedor *</Label>
+              <Label htmlFor="telefone">Telefone do Recebedor</Label>
               <Input
                 id="telefone"
                 value={formData?.telefone ?? ''}
                 onChange={(e) => setFormData({ ...formData, telefone: formatarTelefone(e?.target?.value ?? '') })}
-                required
                 placeholder="(00) 00000-0000"
               />
             </div>
@@ -630,7 +628,7 @@ export function FormularioPedido({ onSuccess }: { onSuccess?: () => void }) {
               placeholder="150.00"
             />
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="valorFretePago">Frete Cobrado do Cliente (R$)</Label>
@@ -646,10 +644,10 @@ export function FormularioPedido({ onSuccess }: { onSuccess?: () => void }) {
             <div>
               <Label htmlFor="valorFreteReal" className="flex items-center gap-2">
                 Custo Real do Frete (R$)
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={calcularFreteRapido}
                   disabled={calculandoFrete}
                   className="h-6 px-2 text-xs"
@@ -674,7 +672,7 @@ export function FormularioPedido({ onSuccess }: { onSuccess?: () => void }) {
               />
             </div>
           </div>
-          
+
           {/* Indicador de Lucro/Prejuízo */}
           {(formData.valorFretePago && formData.valorFreteReal) && (
             <div className={`p-3 rounded-lg border ${diferencaFrete() >= 0 ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'}`}>

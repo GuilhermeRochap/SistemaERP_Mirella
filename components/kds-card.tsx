@@ -156,6 +156,33 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
     }
   };
 
+  const handleFinalizar = async () => {
+    if (!window.confirm('Deseja finalizar este pedido agora? Ele será movido para Entregue.')) return;
+
+    try {
+      const response = await fetch(`/api/pedidos/${pedido?.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'Entregue',
+          statusProducao: 'Entregue'
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Pedido finalizado com sucesso!');
+        if (onUpdate) onUpdate();
+      } else {
+        toast.error('Erro ao finalizar pedido.');
+      }
+    } catch (error) {
+      console.error('Erro ao finalizar pedido:', error);
+      toast.error('Erro de comunicação');
+    }
+  };
+
   const getStatusColor = () => {
     switch (pedido?.statusProducao) {
       case 'Aguardando Produção':
@@ -391,8 +418,16 @@ export function KDSCard({ pedido, onUpdate }: KDSCardProps) {
           )}
 
           {pedido?.statusProducao === 'Concluído' && (
-            <div className="flex-1 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-center py-2 rounded-lg font-semibold border border-green-300 dark:border-green-700">
-              ✓ Pronto para Entrega
+            <div className="flex flex-col gap-2 w-full">
+              <div className="flex-1 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-center py-2 rounded-lg font-semibold border border-green-300 dark:border-green-700">
+                ✓ Pronto para Entrega
+              </div>
+              <Button
+                onClick={handleFinalizar}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                Finalizar Pedido
+              </Button>
             </div>
           )}
         </div>

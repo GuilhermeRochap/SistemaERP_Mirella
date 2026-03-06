@@ -190,7 +190,7 @@ export default function PedidoDetalhesPage() {
           <span className={`px-3 py-1 rounded-full text-sm font-semibold border ${getStatusColor(pedido.statusProducao)}`}>
             {pedido.statusProducao}
           </span>
-          {pedido.statusProducao === 'Concluído' && !pedido.rotaId && (
+          {(pedido.statusProducao === 'Concluído' || pedido.statusProducao === 'Em Rota') && (
             <Button
               size="sm"
               onClick={handleFinalizarDireto}

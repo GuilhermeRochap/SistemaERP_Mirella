@@ -266,7 +266,7 @@ export default function PedidosPage() {
             <Truck className="w-3 h-3" />
           </Badge>
         )}
-        {pedido.statusProducao === 'Concluído' && !pedido.rotaId && (
+        {(pedido.statusProducao === 'Concluído' || pedido.statusProducao === 'Em Rota') && (
           <Button
             size="sm"
             onClick={(e) => {

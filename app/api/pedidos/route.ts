@@ -65,10 +65,9 @@ export async function POST(request: Request) {
   try {
     const body = await request?.json?.();
 
-    // Validar campos obrigatórios (CPF é opcional)
+    // Validar campos obrigatórios (CPF e telefone são opcionais)
     const camposObrigatorios = [
       'nomeRecebedor',
-      'telefone',
       'cep',
       'endereco',
       'bairro',

@@ -4,14 +4,17 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { KDSCard } from '@/components/kds-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Volume2, VolumeX, Bell } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { RefreshCw, Volume2, VolumeX, Bell, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { format } from 'date-fns';
 
 export default function KDSPage() {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [periodoFilter, setPeriodoFilter] = useState<string>('all');
+  const [dataFilter, setDataFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [somAtivo, setSomAtivo] = useState(true);
   const [novoPedido, setNovoPedido] = useState(false);
   const pedidosIdsRef = useRef<Set<string>>(new Set());
@@ -56,13 +59,15 @@ export default function KDSPage() {
     }
   }, [somAtivo]);
 
-  const fetchPedidos = async () => {
+  const fetchPedidos = async (data?: string) => {
     try {
-      const response = await fetch('/api/kds');
-      const data = await response?.json?.() ?? [];
+      const d = data ?? dataFilter;
+      const url = d ? `/api/kds?data=${d}` : '/api/kds';
+      const response = await fetch(url);
+      const fetchedData = await response?.json?.() ?? [];
 
       // Verificar se há novos pedidos
-      const novosIds = data
+      const novosIds = fetchedData
         .filter((p: any) => !pedidosIdsRef.current.has(p.id))
         .map((p: any) => p.id);
 
@@ -80,8 +85,8 @@ export default function KDSPage() {
       }
 
       // Atualizar ref com todos os IDs
-      pedidosIdsRef.current = new Set(data.map((p: any) => p.id));
-      setPedidos(data);
+      pedidosIdsRef.current = new Set(fetchedData.map((p: any) => p.id));
+      setPedidos(fetchedData);
     } catch (error) {
       console.error('Erro ao buscar pedidos:', error);
     } finally {
@@ -91,9 +96,9 @@ export default function KDSPage() {
 
   useEffect(() => {
     fetchPedidos();
-    const interval = setInterval(fetchPedidos, 5000); // Auto-refresh a cada 5s
+    const interval = setInterval(() => fetchPedidos(), 5000); // Auto-refresh a cada 5s
     return () => clearInterval(interval);
-  }, []);
+  }, [dataFilter]);
 
   const filteredPedidos = pedidos?.filter?.((p) => {
     // Filtro de Status
@@ -156,7 +161,7 @@ export default function KDSPage() {
           >
             {somAtivo ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </Button>
-          <Button onClick={fetchPedidos} variant="outline" size="sm">
+          <Button onClick={() => fetchPedidos()} variant="outline" size="sm">
             <RefreshCw className="w-4 h-4 mr-2" />
             Atualizar
           </Button>
@@ -165,6 +170,33 @@ export default function KDSPage() {
 
       {/* Filters Area */}
       <div className="flex flex-col gap-3 pb-2">
+        {/* Filtro de Data */}
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">Data:</span>
+          <Input
+            type="date"
+            value={dataFilter}
+            onChange={(e) => {
+              setDataFilter(e.target.value);
+              pedidosIdsRef.current = new Set(); // Reset IDs ao trocar data
+            }}
+            className="w-44 h-8 text-sm"
+          />
+          <Button
+            size="sm"
+            variant={dataFilter === format(new Date(), 'yyyy-MM-dd') ? 'default' : 'outline'}
+            onClick={() => {
+              const hoje = format(new Date(), 'yyyy-MM-dd');
+              setDataFilter(hoje);
+              pedidosIdsRef.current = new Set();
+            }}
+            className="h-8 text-xs"
+          >
+            Hoje
+          </Button>
+        </div>
+
         {/* Status Filters */}
         <div className="flex gap-2 overflow-x-auto">
           {[

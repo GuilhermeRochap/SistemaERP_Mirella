@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import * as lalamoveClient from '@/lib/lalamove-client';
 
 export async function POST(
     _request: NextRequest,
@@ -19,29 +18,20 @@ export async function POST(
             );
         }
 
-        if (!rota.lalamoveOrderId) {
+        // Não permite cancelar via esta rota se já tem veículo Lalamove ativo
+        if (rota.lalamoveOrderId) {
             return NextResponse.json(
-                { error: 'Esta rota não possui veículo solicitado' },
+                { error: 'Esta rota possui veículo Lalamove. Use "Cancelar Veículo" primeiro.' },
                 { status: 400 }
             );
         }
 
-        // Cancelar pedido na Lalamove
-        const cancelado = await lalamoveClient.cancelOrder(rota.lalamoveOrderId);
-
-        if (!cancelado) {
-            return NextResponse.json(
-                { error: 'Não foi possível cancelar o pedido na Lalamove. O motorista pode já ter aceito a corrida.' },
-                { status: 400 }
-            );
-        }
-
-        // Desvincular pedidos da rota e reverter status para que voltem ao otimizador
+        // Desvincula os pedidos da rota e volta ao Otimizador
         await db.pedido.updateMany({
             where: { rotaId: params.id },
             data: {
-                rotaId: null,
                 statusProducao: 'Concluído',
+                rotaId: null,
             },
         });
 
@@ -52,12 +42,12 @@ export async function POST(
 
         return NextResponse.json({
             success: true,
-            message: 'Veículo cancelado e rota excluída com sucesso.',
+            message: 'Rota cancelada. Os pedidos voltaram ao Otimizador.',
         });
     } catch (error: any) {
-        console.error('Erro ao cancelar veículo:', error);
+        console.error('Erro ao cancelar rota:', error);
         return NextResponse.json(
-            { error: error.message || 'Erro ao cancelar veículo' },
+            { error: error.message || 'Erro ao cancelar rota' },
             { status: 500 }
         );
     }

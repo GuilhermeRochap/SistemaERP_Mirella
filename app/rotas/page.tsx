@@ -105,6 +105,12 @@ export default function RotasPage() {
   const [rotaDetalhes, setRotaDetalhes] = useState<Rota | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
 
+  // Estado para cancelamento de rota
+  const [cancelandoRota, setCancelendoRota] = useState<string | null>(null);
+
+  // Aba ativa: 'ativas' ou 'historico'
+  const [abaAtiva, setAbaAtiva] = useState<'ativas' | 'historico'>('ativas');
+
   // Ref para armazenar os status anteriores (para detectar mudanças)
   const statusAnteriorRef = useRef<Record<string, string | null>>({});
 
@@ -279,6 +285,26 @@ export default function RotasPage() {
     }
   };
 
+  const cancelarRota = async (rotaId: string) => {
+    if (!window.confirm('Deseja cancelar esta rota? Os pedidos voltarão ao Otimizador para uma nova rota.'))
+      return;
+    setCancelendoRota(rotaId);
+    try {
+      const response = await fetch(`/api/rotas/${rotaId}/cancelar`, { method: 'POST' });
+      if (response.ok) {
+        toast.success('Rota cancelada! Os pedidos voltaram ao Otimizador.');
+        carregarRotas();
+      } else {
+        const err = await response.json();
+        toast.error(err?.error ?? 'Erro ao cancelar rota');
+      }
+    } catch {
+      toast.error('Erro ao cancelar rota');
+    } finally {
+      setCancelendoRota(null);
+    }
+  };
+
   const abrirDetalhes = async (rota: Rota) => {
     setRotaDetalhes(rota);
     setModalDetalhes(true);
@@ -394,6 +420,11 @@ export default function RotasPage() {
     !['COMPLETED', 'CANCELED', 'REJECTED', 'EXPIRED'].includes(r.lalamoveStatus)
   );
 
+  // Separar rotas por aba
+  const rotasAtivas = rotas.filter(r => !['Concluída', 'Cancelada'].includes(r.status));
+  const rotasHistorico = rotas.filter(r => ['Concluída', 'Cancelada'].includes(r.status));
+  const rotasExibidas = abaAtiva === 'ativas' ? rotasAtivas : rotasHistorico;
+
   return (
     <div className="space-y-8">
       <div className="text-center space-y-2">
@@ -457,21 +488,57 @@ export default function RotasPage() {
         </CardContent>
       </Card>
 
+      {/* Abas Ativas / Histórico */}
+      <div className="flex gap-2 border-b border-border">
+        <button
+          onClick={() => setAbaAtiva('ativas')}
+          className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg transition-colors flex items-center gap-2 ${abaAtiva === 'ativas'
+            ? 'bg-background border border-b-background border-border text-red-600 -mb-px'
+            : 'text-muted-foreground hover:text-foreground'
+            }`}
+        >
+          <Radio className="w-4 h-4" />
+          Em Andamento
+          {rotasAtivas.length > 0 && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${abaAtiva === 'ativas' ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'
+              }`}>{rotasAtivas.length}</span>
+          )}
+        </button>
+        <button
+          onClick={() => setAbaAtiva('historico')}
+          className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg transition-colors flex items-center gap-2 ${abaAtiva === 'historico'
+            ? 'bg-background border border-b-background border-border text-green-600 -mb-px'
+            : 'text-muted-foreground hover:text-foreground'
+            }`}
+        >
+          <CheckCircle className="w-4 h-4" />
+          Histórico / Concluídas
+          {rotasHistorico.length > 0 && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${abaAtiva === 'historico' ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
+              }`}>{rotasHistorico.length}</span>
+          )}
+        </button>
+      </div>
+
       {/* Lista de Rotas */}
       {loading ? (
         <div className="text-center py-12">
           <Loader2 className="w-12 h-12 animate-spin mx-auto text-red-500" />
           <p className="mt-4 text-muted-foreground">Carregando rotas...</p>
         </div>
-      ) : rotas.length === 0 ? (
+      ) : rotasExibidas.length === 0 ? (
         <div className="text-center py-12">
           <Truck className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
-          <p className="mt-4 text-muted-foreground">Nenhuma rota encontrada</p>
-          <p className="text-sm text-muted-foreground">Crie rotas no Otimizador</p>
+          <p className="mt-4 text-muted-foreground">
+            {abaAtiva === 'ativas' ? 'Nenhuma rota ativa no momento' : 'Nenhuma rota concluída ou cancelada'}
+          </p>
+          {abaAtiva === 'ativas' && (
+            <p className="text-sm text-muted-foreground">Crie rotas no Otimizador</p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {rotas.map((rota) => {
+          {rotasExibidas.map((rota) => {
             const statusLalamove = getLalamoveStatusInfo(rota.lalamoveStatus);
 
             return (
@@ -519,14 +586,26 @@ export default function RotasPage() {
                       </Button>
 
                       {!rota.lalamoveOrderId && rota.status === 'Planejada' && (
-                        <Button
-                          size="sm"
-                          onClick={() => abrirModalChamarVeiculo(rota)}
-                          className="bg-orange-600 hover:bg-orange-700"
-                        >
-                          <Truck className="w-4 h-4 mr-2" />
-                          Chamar Veículo
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => abrirModalChamarVeiculo(rota)}
+                            className="bg-orange-600 hover:bg-orange-700"
+                          >
+                            <Truck className="w-4 h-4 mr-2" />
+                            Chamar Veículo
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => cancelarRota(rota.id)}
+                            disabled={cancelandoRota === rota.id}
+                            className="border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            <XCircle className="w-4 h-4 mr-2" />
+                            {cancelandoRota === rota.id ? 'Cancelando...' : 'Cancelar Rota'}
+                          </Button>
+                        </>
                       )}
 
                       {rota.lalamoveShareLink && (
@@ -682,8 +761,8 @@ export default function RotasPage() {
                       key={cotacao.quotationId}
                       onClick={() => setCotacaoSelecionada(cotacao)}
                       className={`p-3 rounded-lg border-2 cursor-pointer transition-all flex items-center justify-between ${cotacaoSelecionada?.quotationId === cotacao.quotationId
-                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-orange-400'
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-orange-400'
                         }`}
                     >
                       <div className="flex items-center gap-2">
@@ -847,14 +926,14 @@ export default function RotasPage() {
                   {rotaDetalhes.pedidos.map((pedido, idx) => (
                     <div
                       key={pedido.id}
-                      className="bg-card border rounded-lg p-3 flex items-center gap-3"
+                      className="bg-card border rounded-lg p-3 flex items-center gap-3 hover:border-red-300 transition-colors"
                     >
-                      <div className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                      <div className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center font-bold text-sm shrink-0">
                         {idx + 1}
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <p className="font-semibold">{pedido.nomeRecebedor}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground truncate">
                           {pedido.endereco}, {pedido.numero} - {pedido.bairro}, {pedido.cidade}
                         </p>
                         <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
@@ -865,8 +944,17 @@ export default function RotasPage() {
                           {pedido.horaEntrega}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center gap-3 shrink-0">
                         <p className="text-sm font-medium">{pedido.peso.toFixed(1)} kg</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(`/pedidos/${pedido.id}`, '_blank')}
+                          className="h-8 px-2 border-red-200 text-red-600 hover:bg-red-50"
+                          title="Abrir pedido"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}

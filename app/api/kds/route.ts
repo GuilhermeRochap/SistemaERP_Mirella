@@ -1,15 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const dataFiltro = searchParams.get('data'); // formato: YYYY-MM-DD
+
+    // Montar filtro de data se fornecido
+    let whereData = {};
+    if (dataFiltro) {
+      const inicio = new Date(`${dataFiltro}T00:00:00.000Z`);
+      const fim = new Date(`${dataFiltro}T23:59:59.999Z`);
+      whereData = { dataEntrega: { gte: inicio, lte: fim } };
+    }
+
     const pedidos = await db?.pedido?.findMany?.({
       where: {
         statusProducao: {
           in: ['Aguardando Produção', 'Em Produção', 'Pausado', 'Concluído'],
         },
+        ...whereData,
       },
       orderBy: [
         { status: 'asc' }, // Urgente primeiro

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import dynamic from 'next/dynamic';
 
 // Importar Leaflet dinamicamente para evitar SSR
-const MapaLeaflet = dynamic(() => import('@/components/mapa-leaflet'), { 
+const MapaLeaflet = dynamic(() => import('@/components/mapa-leaflet'), {
   ssr: false,
   loading: () => <div className="h-[250px] bg-muted animate-pulse rounded-lg" />
 });
@@ -91,7 +91,7 @@ export default function RotasPage() {
   const [filtroStatus, setFiltroStatus] = useState<string>('all');
   const [filtroData, setFiltroData] = useState<string>('');
   const [config, setConfig] = useState<Configuracao | null>(null);
-  
+
   // Estados do modal de chamar veículo
   const [modalAberto, setModalAberto] = useState(false);
   const [rotaSelecionada, setRotaSelecionada] = useState<Rota | null>(null);
@@ -148,7 +148,7 @@ export default function RotasPage() {
   };
 
   // Função para atualizar status de uma rota específica
-  const atualizarStatusRota = useCallback(async (rotaId: string): Promise<{novoStatus: string | null, motorista: string | null} | null> => {
+  const atualizarStatusRota = useCallback(async (rotaId: string): Promise<{ novoStatus: string | null, motorista: string | null } | null> => {
     try {
       const response = await fetch(`/api/rotas/${rotaId}/status-lalamove`);
       if (response?.ok) {
@@ -166,9 +166,9 @@ export default function RotasPage() {
 
   // Polling para atualização em tempo real
   useEffect(() => {
-    const rotasAtivas = rotas.filter(r => 
-      r.lalamoveOrderId && 
-      r.lalamoveStatus && 
+    const rotasAtivas = rotas.filter(r =>
+      r.lalamoveOrderId &&
+      r.lalamoveStatus &&
       !['COMPLETED', 'CANCELED', 'REJECTED', 'EXPIRED'].includes(r.lalamoveStatus)
     );
 
@@ -181,11 +181,11 @@ export default function RotasPage() {
         const resultado = await atualizarStatusRota(rota.id);
         if (resultado && resultado.novoStatus) {
           const statusAnterior = statusAnteriorRef.current[rota.id];
-          
+
           // Se o status mudou, mostrar notificação
           if (statusAnterior && statusAnterior !== resultado.novoStatus) {
             const descricao = STATUS_DESCRICOES[resultado.novoStatus] || resultado.novoStatus;
-            
+
             if (resultado.novoStatus === 'ON_GOING' && resultado.motorista) {
               toast.success(`🚗 Motorista ${resultado.motorista} encontrado! Indo buscar a encomenda.`, { duration: 5000 });
             } else if (resultado.novoStatus === 'PICKED_UP') {
@@ -195,10 +195,10 @@ export default function RotasPage() {
             } else {
               toast(`Status atualizado: ${descricao}`, { icon: '🔄' });
             }
-            
+
             houveAtualizacao = true;
           }
-          
+
           statusAnteriorRef.current[rota.id] = resultado.novoStatus;
         }
       }
@@ -388,9 +388,9 @@ export default function RotasPage() {
   };
 
   // Verificar se há rotas sendo monitoradas
-  const rotasMonitoradas = rotas.filter(r => 
-    r.lalamoveOrderId && 
-    r.lalamoveStatus && 
+  const rotasMonitoradas = rotas.filter(r =>
+    r.lalamoveOrderId &&
+    r.lalamoveStatus &&
     !['COMPLETED', 'CANCELED', 'REJECTED', 'EXPIRED'].includes(r.lalamoveStatus)
   );
 
@@ -473,7 +473,7 @@ export default function RotasPage() {
         <div className="grid grid-cols-1 gap-6">
           {rotas.map((rota) => {
             const statusLalamove = getLalamoveStatusInfo(rota.lalamoveStatus);
-            
+
             return (
               <Card key={rota.id} className="border-2 hover:shadow-lg transition-shadow">
                 <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
@@ -605,6 +605,20 @@ export default function RotasPage() {
                     </div>
                   )}
 
+                  {/* Link de rastreamento */}
+                  {rota.lalamoveShareLink && (
+                    <a
+                      href={rota.lalamoveShareLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 hover:bg-orange-100 transition-colors"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      <span className="font-medium text-sm">Rastrear entrega em tempo real</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+
                   {/* Lista resumida de pedidos */}
                   <div className="mt-4">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Destinos:</p>
@@ -667,11 +681,10 @@ export default function RotasPage() {
                     <div
                       key={cotacao.quotationId}
                       onClick={() => setCotacaoSelecionada(cotacao)}
-                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all flex items-center justify-between ${
-                        cotacaoSelecionada?.quotationId === cotacao.quotationId
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all flex items-center justify-between ${cotacaoSelecionada?.quotationId === cotacao.quotationId
                           ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/30'
                           : 'border-gray-200 dark:border-gray-700 hover:border-orange-400'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <div className={`p-1.5 rounded ${getVehicleColor(cotacao.serviceType)}`}>

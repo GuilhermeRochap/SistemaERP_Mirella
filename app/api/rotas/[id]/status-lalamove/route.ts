@@ -27,7 +27,7 @@ export async function GET(
 
     // Buscar status na Lalamove
     const lalamoveStatus = await lalamoveClient.getOrderStatus(rota.lalamoveOrderId);
-    
+
     console.log('Status Lalamove:', lalamoveStatus);
 
     // Atualizar banco com dados mais recentes
@@ -42,6 +42,11 @@ export async function GET(
       dadosAtualizacao.lalamovePlateNumber = lalamoveStatus.driver.plateNumber;
     }
 
+    // Capturar shareLink se disponível
+    if (lalamoveStatus.shareLink) {
+      dadosAtualizacao.lalamoveShareLink = lalamoveStatus.shareLink;
+    }
+
     // Atualizar status da rota baseado no Lalamove
     if (lalamoveStatus.status === 'COMPLETED') {
       dadosAtualizacao.status = 'Concluída';
@@ -54,7 +59,7 @@ export async function GET(
       dadosAtualizacao.status = 'Cancelada';
     }
 
-    await db.rota.update({
+    const rotaAtualizada = await db.rota.update({
       where: { id: params.id },
       data: dadosAtualizacao
     });
@@ -63,7 +68,7 @@ export async function GET(
       orderId: rota.lalamoveOrderId,
       status: lalamoveStatus.status,
       statusDescricao: getStatusDescricao(lalamoveStatus.status),
-      shareLink: rota.lalamoveShareLink,
+      shareLink: rotaAtualizada.lalamoveShareLink ?? lalamoveStatus.shareLink ?? null,
       driver: lalamoveStatus.driver || null,
       priceBreakdown: lalamoveStatus.priceBreakdown || null,
       chamadoEm: rota.lalamoveChamadoEm,

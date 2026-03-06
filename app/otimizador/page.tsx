@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Truck, Package, MapPin, Clock, TrendingUp, Bike, Car, RefreshCw, Loader2, AlertCircle, Users, CheckCircle2, Zap, Edit, Save, X, Search, RotateCcw, GripVertical } from 'lucide-react';
+import { Truck, Package, MapPin, Clock, TrendingUp, Bike, Car, RefreshCw, Loader2, AlertCircle, Users, CheckCircle2, Zap, Edit, Save, X, Search, RotateCcw, GripVertical, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
 import {
@@ -76,6 +76,8 @@ interface Rota {
   distanciaTotal: number;
   tempoEstimadoTotal: number;
   pedidos: any[];
+  lalamoveOrderId?: string | null;
+  lalamoveStatus?: string | null;
 }
 
 interface EnderecoEdicao {
@@ -171,6 +173,7 @@ function SortablePedidoItem({
 export default function OtimizadorPage() {
   const [loading, setLoading] = useState(true);
   const [loadingCriacao, setLoadingCriacao] = useState(false);
+  const [cancelandoVeiculo, setCancelandoVeiculo] = useState<string | null>(null);
   const [gruposCotacao, setGruposCotacao] = useState<CotacaoAgrupada | null>(null);
   const [rotasCriadas, setRotasCriadas] = useState<Rota[]>([]);
   const [semPedidos, setSemPedidos] = useState(false);
@@ -214,6 +217,33 @@ export default function OtimizadorPage() {
   const [enderecoTemp, setEnderecoTemp] = useState<EnderecoEdicao | null>(null);
   const [salvandoEndereco, setSalvandoEndereco] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
+
+  // Cancelar solicitação de veículo Lalamove
+  const cancelarVeiculo = async (rotaId: string) => {
+    if (!window.confirm('Deseja cancelar a solicitação de veículo? Esta ação não pode ser desfeita se o motorista já aceitou.'))
+      return;
+    setCancelandoVeiculo(rotaId);
+    try {
+      const response = await fetch(`/api/rotas/${rotaId}/cancelar-veiculo`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        toast.success('Veículo cancelado com sucesso!');
+        setRotasCriadas(prev => prev.map(r =>
+          r.id === rotaId
+            ? { ...r, lalamoveOrderId: null, lalamoveStatus: null }
+            : r
+        ));
+      } else {
+        const err = await response.json();
+        toast.error(err?.error ?? 'Erro ao cancelar veículo');
+      }
+    } catch {
+      toast.error('Erro ao cancelar veículo');
+    } finally {
+      setCancelandoVeiculo(null);
+    }
+  };
 
   // Voltar pedido para o KDS
   const voltarParaKds = async (pedidoId: string) => {
@@ -853,7 +883,7 @@ export default function OtimizadorPage() {
                     <Badge variant="outline">{rota.pedidos.length} pedidos</Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-3">
+                <CardContent className="pt-3 space-y-3">
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="bg-muted rounded p-2">
                       <p className="text-xs text-muted-foreground">Peso</p>
@@ -868,6 +898,27 @@ export default function OtimizadorPage() {
                       <p className="font-bold">{rota.tempoEstimadoTotal} min</p>
                     </div>
                   </div>
+                  {rota.lalamoveOrderId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => cancelarVeiculo(rota.id)}
+                      disabled={cancelandoVeiculo === rota.id}
+                      className="w-full border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    >
+                      {cancelandoVeiculo === rota.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Cancelando...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-4 h-4 mr-2" />
+                          Cancelar Solicitação de Veículo
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

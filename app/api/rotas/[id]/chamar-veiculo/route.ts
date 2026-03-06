@@ -91,7 +91,7 @@ export async function POST(
 
     // Usar os stopIds retornados pela cotação
     const stopIds = quotation.stops?.map(s => s.stopId) || [];
-    
+
     // Se não temos stopIds da cotação, usar índices como string
     const senderStopId = stopIds[0] || '0';
     const recipientStopIds = stopIds.slice(1);
@@ -152,6 +152,7 @@ export async function POST(
         lalamoveServiceType: serviceType,
         lalamovePrice: lalamoveOrder.price?.total ? parseFloat(lalamoveOrder.price.total) : null,
         lalamoveChamadoEm: new Date(),
+        lalamoveShareLink: (lalamoveOrder as any).shareLink ?? null,
         status: 'Em Andamento'
       }
     });

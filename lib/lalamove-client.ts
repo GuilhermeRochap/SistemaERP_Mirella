@@ -3,8 +3,8 @@ import crypto from 'crypto';
 
 const API_KEY = process.env.LALAMOVE_API_KEY ?? '';
 const API_SECRET = process.env.LALAMOVE_API_SECRET ?? '';
-const BASE_URL = API_KEY.startsWith('pk_test_') 
-  ? 'https://rest.sandbox.lalamove.com' 
+const BASE_URL = API_KEY.startsWith('pk_test_')
+  ? 'https://rest.sandbox.lalamove.com'
   : 'https://rest.lalamove.com';
 const MARKET = 'BR'; // Brasil
 
@@ -32,7 +32,6 @@ export interface LalamovePriceBreakdown {
   extraMileage: string;
   surcharge: string;
   totalBeforeOptimization: string;
-  totalExcludePriorityFee: string;
   total: string;
   currency: string;
 }
@@ -95,7 +94,7 @@ function generateSignature(
 function getAuthHeaders(method: string, path: string, body: string = ''): Record<string, string> {
   const timestamp = Date.now().toString();
   const signature = generateSignature(timestamp, method, path, body);
-  
+
   return {
     'Content-Type': 'application/json',
     'Authorization': `hmac ${API_KEY}:${timestamp}:${signature}`,
@@ -167,7 +166,7 @@ export async function getAllQuotations(
 ): Promise<Array<{ serviceType: LalamoveServiceType; quotation: LalamoveQuotationResponse | null }>> {
   // Tipos disponíveis no Brasil: LALAGO (moto), CAR, VAN
   const serviceTypes: LalamoveServiceType[] = ['LALAGO', 'CAR', 'VAN'];
-  
+
   const quotations = await Promise.all(
     serviceTypes.map(async (serviceType) => {
       const quotation = await getQuotation(serviceType, stops, scheduleAt);
@@ -200,9 +199,9 @@ export async function createOrder(
 
     if (!response.ok) {
       console.error('Erro ao criar pedido Lalamove:', response.status, responseData);
-      const errorMessage = responseData?.errors?.[0]?.detail || 
-                          responseData?.message || 
-                          `Erro ${response.status} ao criar pedido`;
+      const errorMessage = responseData?.errors?.[0]?.detail ||
+        responseData?.message ||
+        `Erro ${response.status} ao criar pedido`;
       return { success: false, error: errorMessage };
     }
 

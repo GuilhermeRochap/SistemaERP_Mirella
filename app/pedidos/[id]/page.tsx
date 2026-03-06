@@ -22,6 +22,9 @@ import {
   EyeOff,
   MessageSquare,
   Trash2,
+  ExternalLink,
+  Hash,
+  Navigation,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -360,14 +363,68 @@ export default function PedidoDetalhesPage() {
                 Informações da Rota
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p>Veículo: {pedido.rota.tipoVeiculo}</p>
-              <p>Status: {pedido.rota.status}</p>
-              {pedido.rota.lalamoveStatus && (
-                <p>Status Lalamove: {pedido.rota.lalamoveStatus}</p>
-              )}
+            <CardContent className="space-y-3">
+              {/* Status badges */}
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{pedido.rota.tipoVeiculo}</Badge>
+                <Badge className={
+                  pedido.rota.status === 'Concluída' ? 'bg-green-100 text-green-800' :
+                    pedido.rota.status === 'Em Andamento' ? 'bg-blue-100 text-blue-800' :
+                      'bg-yellow-100 text-yellow-800'
+                }>
+                  {pedido.rota.status}
+                </Badge>
+                {pedido.rota.lalamoveStatus && (
+                  <Badge className="bg-orange-100 text-orange-800">
+                    {pedido.rota.lalamoveStatus === 'ASSIGNING_DRIVER' && 'Buscando motorista...'}
+                    {pedido.rota.lalamoveStatus === 'ON_GOING' && 'Motorista a caminho'}
+                    {pedido.rota.lalamoveStatus === 'PICKED_UP' && 'Coletado — em entrega'}
+                    {pedido.rota.lalamoveStatus === 'COMPLETED' && 'Entregue'}
+                    {pedido.rota.lalamoveStatus === 'CANCELED' && 'Cancelado'}
+                    {!['ASSIGNING_DRIVER', 'ON_GOING', 'PICKED_UP', 'COMPLETED', 'CANCELED'].includes(pedido.rota.lalamoveStatus) && pedido.rota.lalamoveStatus}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Motorista */}
               {pedido.rota.lalamoveDriverName && (
-                <p>Motorista: {pedido.rota.lalamoveDriverName} - {pedido.rota.lalamoveDriverPhone}</p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                    Motorista
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    <span className="flex items-center gap-1 text-blue-700 dark:text-blue-400">
+                      <User className="w-4 h-4" />
+                      {pedido.rota.lalamoveDriverName}
+                    </span>
+                    {pedido.rota.lalamoveDriverPhone && (
+                      <span className="flex items-center gap-1 text-blue-700 dark:text-blue-400">
+                        <Phone className="w-4 h-4" />
+                        {pedido.rota.lalamoveDriverPhone}
+                      </span>
+                    )}
+                    {pedido.rota.lalamovePlateNumber && (
+                      <span className="flex items-center gap-1 text-blue-700 dark:text-blue-400">
+                        <Hash className="w-4 h-4" />
+                        {pedido.rota.lalamovePlateNumber}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ShareLink */}
+              {pedido.rota.lalamoveShareLink && (
+                <a
+                  href={pedido.rota.lalamoveShareLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 hover:bg-orange-100 transition-colors"
+                >
+                  <Navigation className="w-4 h-4" />
+                  <span className="font-medium text-sm">Rastrear entrega em tempo real</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               )}
             </CardContent>
           </Card>

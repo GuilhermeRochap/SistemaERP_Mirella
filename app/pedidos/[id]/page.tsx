@@ -90,6 +90,34 @@ export default function PedidoDetalhesPage() {
     }
   };
 
+  const handleFinalizarDireto = async () => {
+    if (!window.confirm('Deseja finalizar este pedido agora? Ele será movido para Entregue.')) return;
+
+    try {
+      const response = await fetch(`/api/pedidos/${params.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'Entregue',
+          statusProducao: 'Entregue'
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Pedido finalizado com sucesso!');
+        const data = await response.json();
+        setPedido(data);
+      } else {
+        toast.error('Erro ao finalizar pedido.');
+      }
+    } catch (error) {
+      console.error('Erro ao finalizar pedido:', error);
+      toast.error('Erro ao finalizar pedido.');
+    }
+  };
+
   const formatarData = (data: string) => {
     return new Date(data).toLocaleDateString('pt-BR');
   };
@@ -162,6 +190,15 @@ export default function PedidoDetalhesPage() {
           <span className={`px-3 py-1 rounded-full text-sm font-semibold border ${getStatusColor(pedido.statusProducao)}`}>
             {pedido.statusProducao}
           </span>
+          {pedido.statusProducao === 'Concluído' && !pedido.rotaId && (
+            <Button
+              size="sm"
+              onClick={handleFinalizarDireto}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Finalizar Pedido
+            </Button>
+          )}
           <ResumoPedidoImpressao pedido={pedido} nomeEmpresa={config?.nomeEmpresa} />
           <CartaoMensagemA6
             mensagem={pedido.mensagemAnonima}

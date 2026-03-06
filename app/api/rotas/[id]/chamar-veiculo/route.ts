@@ -8,7 +8,14 @@ export async function POST(
 ) {
   try {
     const body = await request.json();
-    const { serviceType = 'LALAGO' } = body;
+    const { serviceType = 'LALAGO', quotationId, stops: quotationStops } = body;
+
+    if (!quotationId || !quotationStops || !Array.isArray(quotationStops)) {
+      return NextResponse.json(
+        { error: 'quotationId e paradas (stops) são obrigatórios' },
+        { status: 400 }
+      );
+    }
 
     // Buscar a rota com os pedidos
     const rota = await db.rota.findUnique({
@@ -72,25 +79,12 @@ export async function POST(
       }
     }
 
-    console.log('Buscando nova cotação Lalamove para criar pedido:', { serviceType, stops: stops.length });
+    // Remove the lalamoveClient.getQuotation step and instead use the variables from the body
 
-    // Primeiro, obter nova cotação para ter os stopIds corretos
-    const quotation = await lalamoveClient.getQuotation(
-      serviceType as lalamoveClient.LalamoveServiceType,
-      stops
-    );
+    console.log('Utilizando cotação enviada pelo frontend:', { quotationId, stops: quotationStops.length });
 
-    if (!quotation) {
-      return NextResponse.json(
-        { error: 'Não foi possível obter cotação da Lalamove. Verifique se o endereço está na área de cobertura.' },
-        { status: 400 }
-      );
-    }
-
-    console.log('Cotação obtida:', { quotationId: quotation.quotationId, stops: quotation.stops });
-
-    // Usar os stopIds retornados pela cotação
-    const stopIds = quotation.stops?.map(s => s.stopId) || [];
+    // Usar os stopIds retornados pela cotação do frontend
+    const stopIds = quotationStops?.map((s: any) => s.stopId) || [];
 
     // Se não temos stopIds da cotação, usar índices como string
     const senderStopId = stopIds[0] || '0';
@@ -117,7 +111,7 @@ export async function POST(
 
     // Criar pedido na Lalamove
     const orderResult = await lalamoveClient.createOrder({
-      quotationId: quotation.quotationId,
+      quotationId: quotationId,
       sender: {
         stopId: senderStopId,
         name: config.nomeEmpresa || 'Mirella Doces',
@@ -148,7 +142,7 @@ export async function POST(
       data: {
         lalamoveOrderId: lalamoveOrder.orderId,
         lalamoveStatus: lalamoveOrder.status || 'ASSIGNING_DRIVER',
-        lalamoveQuotationId: quotation.quotationId,
+        lalamoveQuotationId: quotationId,
         lalamoveServiceType: serviceType,
         lalamovePrice: lalamoveOrder.price?.total ? parseFloat(lalamoveOrder.price.total) : null,
         lalamoveChamadoEm: new Date(),

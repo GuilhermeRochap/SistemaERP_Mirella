@@ -107,6 +107,7 @@ export async function POST(request: Request) {
           expiresAt: quotation.expiresAt,
           distance: quotation.distance,
           priceBreakdown: quotation.priceBreakdown,
+          stops: quotation.stops,
         }],
         pesoTotal,
         qtdPedidos: pedidos.length,
@@ -132,6 +133,7 @@ export async function POST(request: Request) {
         expiresAt: q.quotation!.expiresAt,
         distance: q.quotation!.distance,
         priceBreakdown: q.quotation!.priceBreakdown,
+        stops: q.quotation!.stops,
       }));
 
     return NextResponse.json({

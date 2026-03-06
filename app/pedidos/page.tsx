@@ -14,6 +14,7 @@ import {
   ChevronDown, ChevronUp, Route, Clock, Users, Navigation,
   Plus, List
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Pedido {
   id: string;
@@ -158,6 +159,33 @@ export default function PedidosPage() {
     setAbaAtiva('gerenciar');
   };
 
+  const handleFinalizarDireto = async (pedidoId: string) => {
+    if (!window.confirm('Deseja finalizar este pedido agora? Ele será movido para Entregue.')) return;
+
+    try {
+      const response = await fetch(`/api/pedidos/${pedidoId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'Entregue',
+          statusProducao: 'Entregue'
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Pedido finalizado com sucesso!');
+        fetchPedidos();
+      } else {
+        toast.error('Erro ao finalizar pedido.');
+      }
+    } catch (error) {
+      console.error('Erro ao finalizar pedido:', error);
+      toast.error('Erro ao finalizar pedido.');
+    }
+  };
+
   const { pedidosNovos, pedidosProntos, pedidosEmAndamento, pedidosFinalizados } = useMemo(() => {
     const novos = pedidos.filter(p => p.statusProducao === 'Aguardando Produção');
     const prontos = pedidos.filter(p => p.statusProducao === 'Concluído' && !p.rotaId);
@@ -237,6 +265,18 @@ export default function PedidosPage() {
           <Badge variant="outline" className="flex items-center gap-1">
             <Truck className="w-3 h-3" />
           </Badge>
+        )}
+        {pedido.statusProducao === 'Concluído' && !pedido.rotaId && (
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleFinalizarDireto(pedido.id);
+            }}
+            className="h-7 px-2 bg-green-600 hover:bg-green-700 text-xs"
+          >
+            Finalizar
+          </Button>
         )}
         <ChevronRight className="w-4 h-4 text-gray-400" />
       </div>

@@ -108,6 +108,23 @@ export async function POST(request: Request) {
       },
     });
 
+    // Se o pedido foi removido de uma rota (voltar-kds), verificar se a rota ficou vazia e apagá-la
+    if (acao === 'voltar-kds' && pedido.rotaId) {
+      const remainingPedidos = await db.pedido.count({
+        where: { rotaId: pedido.rotaId }
+      });
+      if (remainingPedidos === 0) {
+        try {
+          await db.rota.delete({
+            where: { id: pedido.rotaId }
+          });
+          console.log(`[KDS] Rota ${pedido.rotaId} apagada pois ficou vazia.`);
+        } catch (err) {
+          console.error(`[KDS] Erro ao tentar apagar rota vazia ${pedido.rotaId}:`, err);
+        }
+      }
+    }
+
     // Criar histórico
     await db?.historicoStatus?.create?.({
       data: {

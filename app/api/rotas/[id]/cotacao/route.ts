@@ -73,7 +73,8 @@ export async function GET(
           serviceType: c.serviceType,
           quotationId: c.quotation!.quotationId,
           preco: lalamoveClient.formatPrice(c.quotation!.priceBreakdown.total),
-          expiresAt: c.quotation!.expiresAt
+          expiresAt: c.quotation!.expiresAt,
+          stops: c.quotation!.stops
         }))
     });
   } catch (error: any) {

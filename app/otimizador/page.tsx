@@ -180,6 +180,8 @@ export default function OtimizadorPage() {
   const [erro, setErro] = useState<string | null>(null);
   // Mapa de ordem de pedidos por grupo (para drag and drop)
   const [ordemPorGrupo, setOrdemPorGrupo] = useState<Record<number, any[]>>({});
+  // Controle de carregamento por grupo ao reordenar
+  const [recalculandoGrupo, setRecalculandoGrupo] = useState<Record<number, boolean>>({});
 
   // Sincroniza a ordem local sempre que os grupos mudarem
   useEffect(() => {
@@ -200,15 +202,59 @@ export default function OtimizadorPage() {
 
   const sensors = useSensors(useSensor(PointerSensor));
 
-  const handleDragEnd = (grupoId: number) => (event: DragEndEvent) => {
+  const handleDragEnd = (grupoId: number) => async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+
+    let novaOrdem: any[] = [];
+
     setOrdemPorGrupo((prev) => {
       const pedidos = prev[grupoId] ?? [];
       const oldIndex = pedidos.findIndex((p: any) => p.id === active.id);
       const newIndex = pedidos.findIndex((p: any) => p.id === over.id);
-      return { ...prev, [grupoId]: arrayMove(pedidos, oldIndex, newIndex) };
+      novaOrdem = arrayMove(pedidos, oldIndex, newIndex);
+      return { ...prev, [grupoId]: novaOrdem };
     });
+
+    // Recalcular cotação para a nova ordem
+    if (novaOrdem.length > 0) {
+      setRecalculandoGrupo(prev => ({ ...prev, [grupoId]: true }));
+      try {
+        const pedidoIds = novaOrdem.map(p => p.id);
+        const grupo = gruposCotacao?.grupos.find(g => g.grupoId === grupoId);
+
+        // Passar o tipoVeiuculo da cotação selecionada se houver, ou o tipo sugerido
+        const tipoVeiculo = grupo?.cotacaoSelecionada?.vehicleName || grupo?.tipoVeiculoSugerido;
+
+        const response = await fetch('/api/rotas/cotacao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pedidoIds, tipoVeiculo }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.quotations && data.quotations.length > 0) {
+            // Selecionar a cotação mais barata (ou a única que voltar caso tenha filtrado por tipo)
+            const novaCotacao = [...data.quotations].sort((a, b) =>
+              parseFloat(a.price) - parseFloat(b.price)
+            )[0];
+
+            // Atualizar o grupo com as novas cotações
+            selecionarCotacaoGrupo(grupoId, novaCotacao);
+
+            toast.success(`Cotação recalculada para a nova ordem!`, { id: `recalc-${grupoId}` });
+          }
+        } else {
+          toast.error('Não foi possível recalcular a cotação.');
+        }
+      } catch (error) {
+        console.error('Erro ao recalcular rota:', error);
+        toast.error('Erro ao recalcular a cotação.');
+      } finally {
+        setRecalculandoGrupo(prev => ({ ...prev, [grupoId]: false }));
+      }
+    }
   };
 
   // Estados para edição de endereço
@@ -759,11 +805,15 @@ export default function OtimizadorPage() {
                         </p>
                       </div>
                     </CardTitle>
-                    {grupo.cotacaoSelecionada && (
+                    {recalculandoGrupo[grupo.grupoId] ? (
+                      <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 text-base px-3 py-1 flex items-center gap-1">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Recalculando...
+                      </Badge>
+                    ) : grupo.cotacaoSelecionada ? (
                       <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-base px-3 py-1">
                         {grupo.cotacaoSelecionada.vehicleName} - {grupo.cotacaoSelecionada.priceFormatted}
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                 </CardHeader>
                 <CardContent className="pt-4 space-y-4">

@@ -63,6 +63,7 @@ interface Cotacao {
   preco: string;
   expiresAt: string;
   priceFormatted?: string;
+  stops?: any[];
 }
 
 interface Configuracao {
@@ -266,6 +267,8 @@ export default function RotasPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceType: cotacaoSelecionada.serviceType,
+          quotationId: cotacaoSelecionada.quotationId,
+          stops: cotacaoSelecionada.stops
         }),
       });
 

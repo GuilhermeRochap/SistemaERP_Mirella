@@ -239,22 +239,25 @@ export default function OtimizadorPage() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    let novaOrdem: any[] = [];
+    const grupo = gruposCotacao?.grupos.find(g => g.grupoId === grupoId);
+    if (!grupo) return;
 
-    setOrdemPorGrupo((prev) => {
-      const pedidos = prev[grupoId] ?? [];
-      const oldIndex = pedidos.findIndex((p: any) => p.id === active.id);
-      const newIndex = pedidos.findIndex((p: any) => p.id === over.id);
-      novaOrdem = arrayMove(pedidos, oldIndex, newIndex);
-      return { ...prev, [grupoId]: novaOrdem };
-    });
+    const pedidosAtual = ordemPorGrupo[grupoId] || grupo.pedidos;
+    const oldIndex = pedidosAtual.findIndex((p: any) => p && p.id === active.id);
+    const newIndex = pedidosAtual.findIndex((p: any) => p && p.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const novaOrdem = arrayMove(pedidosAtual, oldIndex, newIndex);
+
+    // Save immediate state
+    setOrdemPorGrupo(prev => ({ ...prev, [grupoId]: novaOrdem }));
 
     // Recalcular cotação para a nova ordem
     if (novaOrdem.length > 0) {
       setRecalculandoGrupo(prev => ({ ...prev, [grupoId]: true }));
       try {
         const pedidoIds = novaOrdem.map(p => p.id);
-        const grupo = gruposCotacao?.grupos.find(g => g.grupoId === grupoId);
 
         // Passar o tipoVeiuculo da cotação selecionada se houver, ou o tipo sugerido
         const tipoVeiculo = grupo?.cotacaoSelecionada?.vehicleName || grupo?.tipoVeiculoSugerido;
@@ -268,14 +271,12 @@ export default function OtimizadorPage() {
         if (response.ok) {
           const data = await response.json();
           if (data.quotations && data.quotations.length > 0) {
-            // Selecionar a cotação mais barata (ou a única que voltar caso tenha filtrado por tipo)
+            // Selecionar a cotação mais barata
             const novaCotacao = [...data.quotations].sort((a, b) =>
               parseFloat(a.price) - parseFloat(b.price)
             )[0];
 
-            // Atualizar o grupo com as novas cotações
             selecionarCotacaoGrupo(grupoId, novaCotacao);
-
             toast.success(`Cotação recalculada para a nova ordem!`, { id: `recalc-${grupoId}` });
           }
         } else {
@@ -859,11 +860,11 @@ export default function OtimizadorPage() {
                   {/* Mapa */}
                   <MapaLeaflet
                     origem={grupo.origem}
-                    destinos={(ordemPorGrupo[grupo.grupoId] || grupo.pedidos).map((p: any) => ({
+                    destinos={(ordemPorGrupo[grupo.grupoId] || grupo.pedidos).filter(Boolean).map((p: any) => ({
                       latitude: p.latitude,
                       longitude: p.longitude,
-                      endereco: `${p.endereco}, ${p.numero ?? ''} - ${p.bairro}`,
-                      nomeRecebedor: p.nomeRecebedor,
+                      endereco: `${p.endereco ?? ''}, ${p.numero ?? ''} - ${p.bairro ?? ''}`,
+                      nomeRecebedor: p.nomeRecebedor ?? 'Sem Nome',
                     }))}
                     tipoVeiculo={grupo.cotacaoSelecionada?.vehicleName ?? grupo.tipoVeiculoSugerido}
                     altura="200px"
@@ -890,7 +891,7 @@ export default function OtimizadorPage() {
                         items={(ordemPorGrupo[grupo.grupoId] ?? grupo.pedidos).map((p: any) => p.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        {(ordemPorGrupo[grupo.grupoId] ?? grupo.pedidos).map((pedido: any, idx: number) => (
+                        {(ordemPorGrupo[grupo.grupoId] || grupo.pedidos).filter(Boolean).map((pedido: any, idx: number) => (
                           <SortablePedidoItem
                             key={pedido.id}
                             pedido={pedido}

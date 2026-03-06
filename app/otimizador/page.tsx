@@ -183,22 +183,48 @@ export default function OtimizadorPage() {
   // Controle de carregamento por grupo ao reordenar
   const [recalculandoGrupo, setRecalculandoGrupo] = useState<Record<number, boolean>>({});
 
-  // Sincroniza a ordem local sempre que os grupos mudarem
+  // Carregar do LocalStorage ao montar
   useEffect(() => {
-    if (gruposCotacao?.grupos) {
-      const novaOrdem: Record<number, any[]> = {};
-      gruposCotacao.grupos.forEach((g) => {
-        // Preservar a ordem custom se o grupo já existia
-        if (ordemPorGrupo[g.grupoId] && ordemPorGrupo[g.grupoId].length === g.pedidos.length) {
-          novaOrdem[g.grupoId] = ordemPorGrupo[g.grupoId];
-        } else {
-          novaOrdem[g.grupoId] = g.pedidos;
-        }
-      });
-      setOrdemPorGrupo(novaOrdem);
+    const savedGrupos = localStorage.getItem('otimizador_grupos');
+    const savedOrdem = localStorage.getItem('otimizador_ordem');
+
+    if (savedGrupos) {
+      try {
+        setGruposCotacao(JSON.parse(savedGrupos));
+        setLoading(false);
+      } catch (e) {
+        console.error('Erro ao ler grupos do localStorage', e);
+      }
+    } else {
+      carregarEAgrupar();
+    }
+
+    if (savedOrdem) {
+      try {
+        setOrdemPorGrupo(JSON.parse(savedOrdem));
+      } catch (e) {
+        console.error('Erro ao ler ordem do localStorage', e);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Executa apenas na montagem
+
+  // Salvar no LocalStorage sempre que houver mudanças importantes state
+  useEffect(() => {
+    if (gruposCotacao) {
+      localStorage.setItem('otimizador_grupos', JSON.stringify(gruposCotacao));
+    } else {
+      localStorage.removeItem('otimizador_grupos');
+    }
   }, [gruposCotacao]);
+
+  useEffect(() => {
+    if (Object.keys(ordemPorGrupo).length > 0) {
+      localStorage.setItem('otimizador_ordem', JSON.stringify(ordemPorGrupo));
+    } else {
+      localStorage.removeItem('otimizador_ordem');
+    }
+  }, [ordemPorGrupo]);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -462,6 +488,13 @@ export default function OtimizadorPage() {
     }
   }, []);
 
+  const forcarAtualizacao = useCallback(async () => {
+    localStorage.removeItem('otimizador_grupos');
+    localStorage.removeItem('otimizador_ordem');
+    setOrdemPorGrupo({});
+    await carregarEAgrupar();
+  }, [carregarEAgrupar]);
+
   useEffect(() => {
     carregarEAgrupar();
   }, [carregarEAgrupar]);
@@ -492,7 +525,8 @@ export default function OtimizadorPage() {
 
     setLoadingCriacao(true);
     try {
-      const pedidoIds = grupo.pedidos.map(p => p.id);
+      const pedidosOrdenados = ordemPorGrupo[grupo.grupoId] || grupo.pedidos;
+      const pedidoIds = pedidosOrdenados.map((p: any) => p.id);
       const tipoVeiculo = grupo.cotacaoSelecionada.vehicleName;
       const serviceType = grupo.cotacaoSelecionada.serviceType;
 
@@ -572,7 +606,8 @@ export default function OtimizadorPage() {
 
     for (const grupo of gruposComCotacao) {
       try {
-        const pedidoIds = grupo.pedidos.map(p => p.id);
+        const pedidosOrdenados = ordemPorGrupo[grupo.grupoId] || grupo.pedidos;
+        const pedidoIds = pedidosOrdenados.map((p: any) => p.id);
         const tipoVeiculo = grupo.cotacaoSelecionada!.vehicleName;
         const serviceType = grupo.cotacaoSelecionada!.serviceType;
 
@@ -718,7 +753,7 @@ export default function OtimizadorPage() {
           <CardContent className="flex flex-col items-center justify-center py-16">
             <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
             <h2 className="text-xl font-semibold text-red-700">{erro}</h2>
-            <Button onClick={carregarEAgrupar} className="mt-6" variant="outline">
+            <Button onClick={forcarAtualizacao} className="mt-6" variant="outline">
               <RefreshCw className="w-4 h-4 mr-2" />
               Tentar Novamente
             </Button>
@@ -740,9 +775,9 @@ export default function OtimizadorPage() {
             Agrupamento automático • Máx. 10km entre pedidos • Máx. 10 pedidos por rota
           </p>
         </div>
-        <Button onClick={carregarEAgrupar} variant="outline">
+        <Button onClick={forcarAtualizacao} variant="outline" title="Isso limpa sua sessão salva e busca pedidos do zero">
           <RefreshCw className="w-4 h-4 mr-2" />
-          Atualizar
+          Limpar e Atualizar
         </Button>
       </div>
 
@@ -820,7 +855,12 @@ export default function OtimizadorPage() {
                   {/* Mapa */}
                   <MapaLeaflet
                     origem={grupo.origem}
-                    destinos={grupo.destinos}
+                    destinos={(ordemPorGrupo[grupo.grupoId] || grupo.pedidos).map((p: any) => ({
+                      latitude: p.latitude,
+                      longitude: p.longitude,
+                      endereco: `${p.endereco}, ${p.numero ?? ''} - ${p.bairro}`,
+                      nomeRecebedor: p.nomeRecebedor,
+                    }))}
                     tipoVeiculo={grupo.cotacaoSelecionada?.vehicleName ?? grupo.tipoVeiculoSugerido}
                     altura="200px"
                   />
@@ -983,7 +1023,7 @@ export default function OtimizadorPage() {
             <CheckCircle2 className="w-12 h-12 text-green-500 mb-4" />
             <h2 className="text-xl font-semibold">Tudo pronto!</h2>
             <p className="text-muted-foreground">Nenhum pedido pendente para agrupar</p>
-            <Button onClick={carregarEAgrupar} className="mt-4" variant="outline">
+            <Button onClick={forcarAtualizacao} className="mt-4" variant="outline">
               <RefreshCw className="w-4 h-4 mr-2" />
               Verificar Novamente
             </Button>

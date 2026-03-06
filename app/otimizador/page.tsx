@@ -171,6 +171,7 @@ function SortablePedidoItem({
 }
 
 export default function OtimizadorPage() {
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingCriacao, setLoadingCriacao] = useState(false);
   const [cancelandoVeiculo, setCancelandoVeiculo] = useState<string | null>(null);
@@ -185,25 +186,29 @@ export default function OtimizadorPage() {
 
   // Carregar do LocalStorage ao montar
   useEffect(() => {
-    const savedGrupos = localStorage.getItem('otimizador_grupos');
-    const savedOrdem = localStorage.getItem('otimizador_ordem');
+    setMounted(true);
 
-    if (savedGrupos) {
-      try {
-        setGruposCotacao(JSON.parse(savedGrupos));
-        setLoading(false);
-      } catch (e) {
-        console.error('Erro ao ler grupos do localStorage', e);
+    if (typeof window !== 'undefined') {
+      const savedGrupos = localStorage.getItem('otimizador_grupos');
+      const savedOrdem = localStorage.getItem('otimizador_ordem');
+
+      if (savedGrupos) {
+        try {
+          setGruposCotacao(JSON.parse(savedGrupos));
+          setLoading(false);
+        } catch (e) {
+          console.error('Erro ao ler grupos do localStorage', e);
+        }
+      } else {
+        carregarEAgrupar();
       }
-    } else {
-      carregarEAgrupar();
-    }
 
-    if (savedOrdem) {
-      try {
-        setOrdemPorGrupo(JSON.parse(savedOrdem));
-      } catch (e) {
-        console.error('Erro ao ler ordem do localStorage', e);
+      if (savedOrdem) {
+        try {
+          setOrdemPorGrupo(JSON.parse(savedOrdem));
+        } catch (e) {
+          console.error('Erro ao ler ordem do localStorage', e);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,20 +216,22 @@ export default function OtimizadorPage() {
 
   // Salvar no LocalStorage sempre que houver mudanças importantes state
   useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
     if (gruposCotacao) {
       localStorage.setItem('otimizador_grupos', JSON.stringify(gruposCotacao));
     } else {
       localStorage.removeItem('otimizador_grupos');
     }
-  }, [gruposCotacao]);
+  }, [gruposCotacao, mounted]);
 
   useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
     if (Object.keys(ordemPorGrupo).length > 0) {
       localStorage.setItem('otimizador_ordem', JSON.stringify(ordemPorGrupo));
     } else {
       localStorage.removeItem('otimizador_ordem');
     }
-  }, [ordemPorGrupo]);
+  }, [ordemPorGrupo, mounted]);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -693,17 +700,14 @@ export default function OtimizadorPage() {
     }
   };
 
-  // Loading inicial
-  if (loading) {
+  // Loading inicial ou não montado (SSR)
+  if (!mounted || loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="w-12 h-12 text-red-500 animate-spin" />
         <div className="text-center">
           <h2 className="text-xl font-semibold">Otimizando Rotas...</h2>
-          <p className="text-muted-foreground">Agrupando pedidos automaticamente</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Regras: máx. 10km entre pedidos | máx. 10 pedidos por rota
-          </p>
+          <p className="text-muted-foreground">Carregando mapa e grupos</p>
         </div>
       </div>
     );

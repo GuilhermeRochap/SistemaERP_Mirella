@@ -134,7 +134,6 @@ export async function getQuotation(
         serviceType,
         stops,
         language: 'pt_BR',
-        specialRequests: ['RECEIPT'], // Exigir assinatura/foto
         ...(scheduleAt && { scheduleAt }),
         ...(stops.length > 2 && { isRouteOptimized }),
       },

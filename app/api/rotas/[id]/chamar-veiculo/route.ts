@@ -122,8 +122,7 @@ export async function POST(
         name: pedido.nomeRecebedor,
         phone: formatarTelefone(pedido.telefone),
         remarks: pedido.descricao || undefined
-      })),
-      specialRequests: ['RECEIPT']
+      }))
     });
 
     if (!orderResult.success) {

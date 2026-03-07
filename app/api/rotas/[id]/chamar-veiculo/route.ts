@@ -74,7 +74,7 @@ export async function POST(
             lat: String(pedido.latitude),
             lng: String(pedido.longitude)
           },
-          address: `${pedido.endereco}, ${pedido.numero} - ${pedido.bairro}, ${pedido.cidade}/${pedido.estado}`
+          address: `${pedido.endereco}, ${pedido.numero}${pedido.complemento ? ' - ' + pedido.complemento : ''} - ${pedido.bairro}, ${pedido.cidade}/${pedido.estado}`
         });
       }
     }
@@ -122,7 +122,8 @@ export async function POST(
         name: pedido.nomeRecebedor,
         phone: formatarTelefone(pedido.telefone),
         remarks: pedido.descricao || undefined
-      }))
+      })),
+      specialRequests: ['RECEIPT']
     });
 
     if (!orderResult.success) {

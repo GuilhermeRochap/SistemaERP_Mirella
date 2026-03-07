@@ -25,6 +25,7 @@ export interface LalamoveQuotationRequest {
   stops: LalamoveStop[];
   scheduleAt?: string; // ISO 8601 format
   isRouteOptimized?: boolean;
+  specialRequests?: string[];
 }
 
 export interface LalamovePriceBreakdown {
@@ -65,6 +66,7 @@ export interface LalamoveOrderRequest {
     phone: string;
     remarks?: string;
   }>;
+  specialRequests?: string[];
   metadata?: Record<string, any>;
 }
 
@@ -132,6 +134,7 @@ export async function getQuotation(
         serviceType,
         stops,
         language: 'pt_BR',
+        specialRequests: ['RECEIPT'], // Exigir assinatura/foto
         ...(scheduleAt && { scheduleAt }),
         ...(stops.length > 2 && { isRouteOptimized }),
       },

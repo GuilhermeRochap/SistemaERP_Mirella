@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { Button } from './ui/button';
-import { Printer, Eye, MessageSquare } from 'lucide-react';
+import { Printer, Eye, MessageSquare, MapPin } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -237,6 +237,135 @@ export function ResumoPedidoImpressao({ pedido, nomeEmpresa = 'Mirella Doces' }:
 
   const subtotal = (pedido.valorTotalCompra ?? 0) - (pedido.valorFretePago ?? 0);
 
+  const handlePrintEtiqueta = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Etiqueta - Pedido #${pedido.id.slice(0, 8)}</title>
+          <style>
+            @page {
+              size: 80mm auto;
+              margin: 0;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: Arial, Helvetica, sans-serif;
+              padding: 8px;
+              width: 80mm;
+              background: white;
+              color: black;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #000;
+              padding-bottom: 8px;
+              margin-bottom: 12px;
+            }
+            .empresa {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 4px;
+            }
+            .pedido-num {
+              font-size: 18px;
+              font-weight: bold;
+            }
+            .destinatario-title {
+              font-size: 12px;
+              text-transform: uppercase;
+              font-weight: bold;
+              margin-bottom: 2px;
+            }
+            .destinatario {
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 12px;
+              line-height: 1.1;
+            }
+            .endereco-box {
+              border: 2px solid #000;
+              padding: 8px;
+              border-radius: 4px;
+              margin-bottom: 12px;
+            }
+            .endereco-title {
+              font-size: 12px;
+              font-weight: bold;
+              text-transform: uppercase;
+              border-bottom: 1px solid #000;
+              padding-bottom: 4px;
+              margin-bottom: 6px;
+            }
+            .endereco-text {
+              font-size: 18px;
+              font-weight: bold;
+              line-height: 1.3;
+            }
+            .info-row {
+              font-size: 16px;
+              margin-bottom: 6px;
+              font-weight: bold;
+            }
+            .label {
+              font-size: 12px;
+              text-transform: uppercase;
+              color: #333;
+              display: block;
+              margin-bottom: 2px;
+            }
+            @media print {
+              body { width: 100%; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="empresa">${nomeEmpresa}</div>
+            <div class="pedido-num">PEDIDO #${pedido.id.slice(0, 8).toUpperCase()}</div>
+          </div>
+          
+          <div class="destinatario-title">Recebedor:</div>
+          <div class="destinatario">${pedido.nomeRecebedor}</div>
+
+          <div class="endereco-box">
+            <div class="endereco-title">Endereço de Entrega</div>
+            <div class="endereco-text">
+              ${pedido.endereco}${pedido.numero ? `, ${pedido.numero}` : ''}<br>
+              ${pedido.complemento ? `Comp: ${pedido.complemento}<br>` : ''}
+              Bairro: ${pedido.bairro}<br>
+              ${pedido.cidade} - ${pedido.estado}
+            </div>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Telefone:</span>
+            ${pedido.telefone}
+          </div>
+          
+          <div class="info-row">
+            <span class="label">Data de Entrega:</span>
+            ${formatarData(pedido.dataEntrega)} às ${pedido.horaEntrega}
+          </div>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   const renderConteudo = () => (
     <div ref={printRef}>
       {/* Cabeçalho */}
@@ -374,15 +503,21 @@ export function ResumoPedidoImpressao({ pedido, nomeEmpresa = 'Mirella Doces' }:
         </div>
 
         {/* Botões de Ação */}
-        <div className="flex justify-between items-center mt-4 print:hidden">
-          <Button variant="outline" onClick={handlePrintA6} className="border-red-300 text-red-700 hover:bg-red-50">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Cartão A6
+        <div className="flex flex-col gap-3 mt-4 print:hidden">
+          <Button onClick={handlePrintEtiqueta} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+            <MapPin className="w-4 h-4 mr-2" />
+            Imprimir Etiqueta de Envio
           </Button>
-          <Button onClick={handlePrint} className="bg-red-600 hover:bg-red-700">
-            <Printer className="w-4 h-4 mr-2" />
-            Imprimir Resumo
-          </Button>
+          <div className="flex justify-between items-center gap-2">
+            <Button variant="outline" onClick={handlePrintA6} className="flex-1 border-red-300 text-red-700 hover:bg-red-50">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Cartão A6
+            </Button>
+            <Button onClick={handlePrint} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
+              <Printer className="w-4 h-4 mr-2" />
+              Imprimir Resumo
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

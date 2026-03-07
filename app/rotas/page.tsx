@@ -707,7 +707,7 @@ export default function RotasPage() {
                     <div className="flex flex-wrap gap-2">
                       {rota.pedidos.slice(0, 5).map((pedido, idx) => (
                         <Badge key={pedido.id} variant="outline" className="text-xs">
-                          {idx + 1}. {pedido.nomeRecebedor} - {pedido.bairro}
+                          {idx + 1}. Pedido #{pedido.id.slice(0, 8).toUpperCase()} - {pedido.bairro}
                         </Badge>
                       ))}
                       {rota.pedidos.length > 5 && (
@@ -935,7 +935,7 @@ export default function RotasPage() {
                         {idx + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold">{pedido.nomeRecebedor}</p>
+                        <p className="font-semibold">Pedido #{pedido.id.slice(0, 8).toUpperCase()} - {pedido.nomeRecebedor}</p>
                         <p className="text-sm text-muted-foreground truncate">
                           {pedido.endereco}, {pedido.numero} - {pedido.bairro}, {pedido.cidade}
                         </p>

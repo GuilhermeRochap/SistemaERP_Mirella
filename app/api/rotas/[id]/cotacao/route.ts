@@ -55,7 +55,7 @@ export async function GET(
             lat: String(pedido.latitude),
             lng: String(pedido.longitude)
           },
-          address: `${pedido.endereco}, ${pedido.numero} - ${pedido.bairro}, ${pedido.cidade}/${pedido.estado}`
+          address: `${pedido.endereco}, ${pedido.numero}${pedido.complemento ? ' - ' + pedido.complemento : ''} - ${pedido.bairro}, ${pedido.cidade}/${pedido.estado}`
         });
       }
     }
